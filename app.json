@@ -1,9 +1,10 @@
 {
   "expo": {
+    "newArchEnabled": true,
     "name": "AudioPlayerApp",
     "slug": "AudioPlayerApp",
     "version": "1.0.0",
-    "scheme": "AudioPlayerApp",
+    "scheme": ["AudioPlayerApp"],
     "web": {
       "bundler": "metro",
       "output": "static",

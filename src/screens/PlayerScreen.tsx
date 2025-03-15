@@ -3,20 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { Player } from '../components/Player';  // Importando o componente Player
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-
-interface Song {
-  path: string;
-  name: string;
-  cover: string;
-  artist: string;
-  album: string;
-}
-
-type RootStackParamList = {
-  Player: {
-    song: Song;
-  };
-};
+import { Song } from '../types/song';
+import { RootStackParamList } from '../types/navigation';
 
 type PlayerScreenRouteProp = RouteProp<RootStackParamList, 'Player'>;
 type PlayerScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Player'>;

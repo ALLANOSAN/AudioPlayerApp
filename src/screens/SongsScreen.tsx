@@ -1,69 +1,267 @@
-import React, { useState } from 'react';
-import { View, Text, Button, FlatList } from 'react-native';
-import RNFS from 'react-native-fs';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, SafeAreaView } from 'react-native';
+import * as FileSystem from 'expo-file-system'; // Alterado para expo-file-system
 import axios from 'axios';
-import * as mm from 'music-metadata';
 import DocumentPicker from '@react-native-documents/picker';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { Song } from '../types/song';
+import { RootStackParamList } from '../types/navigation';
+import { SongList } from '../components/SongList';
+import TrackPlayer from 'react-native-track-player';
+
+type NavigationProp = StackNavigationProp<RootStackParamList, 'Player'>;
 
 const SongsScreen = () => {
-  const [songs, setSongs] = useState<{ path: string; name: string }[]>([]);
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [filteredSongs, setFilteredSongs] = useState<Song[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const navigation = useNavigation<NavigationProp>();
+
+  // Efeito para filtrar músicas quando a busca ou a lista de músicas mudar
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredSongs(songs);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const filtered = songs.filter(song => 
+      song.name.toLowerCase().includes(query) || 
+      song.artist.toLowerCase().includes(query) || 
+      song.album.toLowerCase().includes(query)
+    );
+    
+    setFilteredSongs(filtered);
+  }, [searchQuery, songs]);
 
   const addSongsFromFolder = async () => {
     try {
-      const folder = await DocumentPicker.pickDirectory(); // Permitir seleção de diretório
-
+      setIsLoading(true);
+      const folder = await DocumentPicker.pickDirectory();
+      
       // Ler os arquivos do diretório selecionado
-      const files = await RNFS.readDir(folder.uri);
-      const audioFiles = [];
+      const files = await FileSystem.readDirectoryAsync(folder.uri); // Alterado para usar expo-file-system
+      const audioFiles: Song[] = [];
 
-      for (const file of files) {
-        if (file.name.endsWith('.mp3') || file.name.endsWith('.m4a')) {
-          audioFiles.push(file);
-          const metadata = await mm.parseFile(file.path); // Usar file.path em vez de file.uri
-          const songInfo = await fetchAlbumAndCover(metadata);
-          console.log('Informações da música:', songInfo);
+      // Verificar se a lista de arquivos não está vazia
+      if (!files || files.length === 0) {
+        console.error('Nenhum arquivo encontrado no diretório selecionado.');
+        return;
+      }
+
+      for (const filePath of files) { // Renomeado para filePath
+        if (filePath.endsWith('.mp3') || filePath.endsWith('.m4a')) {
+          try {
+            // Extrair nome do arquivo sem extensão para usar como título
+            const fileName = filePath.split('/').pop()?.replace(/\.[^/.]+$/, "") || '';
+            
+            // Tentar obter metadados usando react-native-get-music-files
+            let title = fileName;
+            let artist = 'Artista Desconhecido';
+            let album = 'Álbum Desconhecido';
+            let cover = '';
+            
+            try {
+              // Tentar obter metadados da API Last.fm
+              const songInfo = await fetchSongInfo(fileName);
+              title = songInfo.title || fileName;
+              artist = songInfo.artist || 'Artista Desconhecido';
+              album = songInfo.album || 'Álbum Desconhecido';
+              cover = songInfo.cover || '';
+            } catch (metadataError) {
+              console.error('Erro ao obter metadados:', metadataError);
+            }
+            
+            // Adicionar dados da música junto com o caminho do arquivo
+            audioFiles.push({
+              path: filePath, // Use filePath aqui
+              name: title,
+              artist: artist,
+              cover: cover,
+              album: album,
+            });
+          } catch (fileError) {
+            console.error('Erro ao processar arquivo:', fileError);
+          }
         }
       }
+
       setSongs(audioFiles);
+      setFilteredSongs(audioFiles);
     } catch (err) {
       console.error('Erro ao selecionar a pasta:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const fetchAlbumAndCover = async (metadata: any) => {
-    const apiKey = 'c0bc9642cd67227a10ce0a129981513b'; // Substitua pela sua chave da Last.fm
-    const artistName = metadata.common.artist || 'Artista Desconhecido';
-    const songName = metadata.common.title || 'Título Desconhecido';
-
+  const fetchSongInfo = async (songName: string): Promise<{title: string, artist: string, album: string, cover: string}> => {
+    const apiKey = 'c0bc9642cd67227a10ce0a129981513b';
     try {
-      const artistResponse = await axios.get(`http://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&api_key=${apiKey}&artist=${artistName}&format=json`);
-      const albums = artistResponse.data.topalbums.album;
-      const albumCover = albums.length > 0 ? albums[0].image[3]['#text'] : '';
-
+      // Buscar informações da música
+      const trackResponse = await axios.get(`http://ws.audioscrobbler.com/2.0/?method=track.search&track=${songName}&api_key=${apiKey}&format=json`);
+      const tracks = trackResponse.data.results?.trackmatches?.track || [];
+      
+      if (tracks.length === 0) {
+        return { title: songName, artist: 'Artista Desconhecido', album: 'Álbum Desconhecido', cover: '' };
+      }
+      
+      const track = tracks[0];
+      const artist = track.artist;
+      
+      // Buscar informações do álbum
+      const albumResponse = await axios.get(`http://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&api_key=${apiKey}&artist=${artist}&format=json`);
+      const albums = albumResponse.data.topalbums?.album || [];
+      const cover = albums.length > 0 ? albums[0].image[3]['#text'] : '';
+      
       return {
-        artist: artistName,
-        song: songName,
-        cover: albumCover,
+        title: track.name || songName,
+        artist: artist || 'Artista Desconhecido',
+        album: albums.length > 0 ? albums[0].name : 'Álbum Desconhecido',
+        cover: cover
       };
     } catch (error) {
-      console.error('Erro ao buscar informações do álbum:', error);
+      console.error('Erro ao buscar informações da música:', error);
+      return { title: songName, artist: 'Artista Desconhecido', album: 'Álbum Desconhecido', cover: '' };
     }
+  };
+
+  const playSong = async (song: Song) => {
+    try {
+      // Resetar o player e adicionar a música selecionada
+      await TrackPlayer.reset();
+      await TrackPlayer.add({
+        id: song.path,
+        url: song.path,
+        title: song.name,
+        artist: song.artist,
+        album: song.album,
+        artwork: song.cover || undefined
+      });
+      
+      // Iniciar a reprodução
+      await TrackPlayer.play();
+      
+      // Navegar para a tela de player com a música selecionada
+      navigation.navigate('Player', { song });
+    } catch (error) {
+      console.error('Erro ao reproduzir música:', error);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
   };
 
   return (
-    <View>
-      <Button title="Adicionar Músicas" onPress={addSongsFromFolder} />
-      <FlatList
-        data={songs}
-        keyExtractor={item => item.path}
-        renderItem={({ item }) => (
-          <View>
-            <Text>{item.name}</Text>
-          </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar músicas, artistas ou álbuns..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          accessible={true}
+          accessibilityLabel="Campo de busca"
+          accessibilityHint="Digite para buscar músicas, artistas ou álbuns"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity 
+            style={styles.clearButton} 
+            onPress={clearSearch}
+            accessible={true}
+            accessibilityLabel="Limpar busca"
+            accessibilityHint="Toque para limpar o texto de busca"
+          >
+            <Text style={styles.clearButtonText}>✕</Text>
+          </TouchableOpacity>
         )}
-      />
-    </View>
+      </View>
+
+      <TouchableOpacity 
+        style={styles.addButton}
+        onPress={addSongsFromFolder}
+        disabled={isLoading}
+        accessible={true}
+        accessibilityLabel="Adicionar músicas"
+        accessibilityHint="Toque para selecionar uma pasta com músicas para adicionar à biblioteca"
+        accessibilityState={{ disabled: isLoading }}
+      >
+        <Text style={styles.addButtonText}>
+          {isLoading ? 'Carregando...' : 'Adicionar Músicas'}
+        </Text>
+      </TouchableOpacity>
+
+      {isLoading ? (
+        <View 
+          style={styles.loadingContainer}
+          accessible={true}
+          accessibilityLabel="Carregando músicas"
+        >
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <Text style={styles.loadingText}>Carregando músicas...</Text>
+        </View>
+      ) : (
+        <SongList songs={filteredSongs} onSelectSong={playSong} />
+      )}
+    </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  searchInput: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+  },
+  clearButton: {
+    padding: 12,
+  },
+  clearButtonText: {
+    fontSize: 16,
+    color: '#888',
+  },
+  addButton: {
+    backgroundColor: '#4CAF50',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  addButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+});
 
 export default SongsScreen;
