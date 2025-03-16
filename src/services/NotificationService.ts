@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 
 class NotificationService {
   private isSetup: boolean = false;
+  private areEventsRegistered: boolean = false; // Flag para evitar duplicidade na inscrição de eventos
 
   /**
    * Configura o serviço de notificações para o player de música
@@ -21,13 +22,16 @@ class NotificationService {
           Capability.SkipToNext,
           Capability.SkipToPrevious,
         ],
-        compactCapabilities: [
+        compactCapabilities: [Capability.Play, Capability.Pause],
+        notificationCapabilities: [
           Capability.Play,
           Capability.Pause,
+          Capability.SkipToNext,
+          Capability.SkipToPrevious,
         ],
       });
 
-      // Registrar eventos do player
+      // Registrar eventos de reprodução (tanto para foreground quanto para background)
       this.registerPlaybackEvents();
 
       // Monitorar estado do aplicativo
@@ -44,11 +48,40 @@ class NotificationService {
    * Registra os eventos de reprodução para atualizar as notificações
    */
   private registerPlaybackEvents() {
+    if (this.areEventsRegistered) {
+      console.log('Os eventos de reprodução já foram registrados. Ignorando.');
+      return;
+    }
+
     try {
-      // Evento quando uma música começa a tocar
+      // Eventos de controle remoto e playback
+      TrackPlayer.addEventListener(Event.RemotePlay, async () => {
+        await TrackPlayer.play();
+      });
+
+      TrackPlayer.addEventListener(Event.RemotePause, async () => {
+        await TrackPlayer.pause();
+      });
+
+      TrackPlayer.addEventListener(Event.RemoteStop, async () => {
+        await TrackPlayer.stop();
+      });
+
+      TrackPlayer.addEventListener(Event.RemoteNext, async () => {
+        await TrackPlayer.skipToNext();
+      });
+
+      TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
+        await TrackPlayer.skipToPrevious();
+      });
+
+      TrackPlayer.addEventListener(Event.RemoteSeek, async (data) => {
+        await TrackPlayer.seekTo(data.position);
+      });
+
+      // Evento para atualização de faixa
       TrackPlayer.addEventListener(Event.PlaybackTrackChanged, async (data) => {
         if (data.nextTrack !== null && data.nextTrack !== undefined) {
-          // Atualizar metadados da notificação com a nova música
           const track = await TrackPlayer.getTrack(data.nextTrack);
           if (track) {
             console.log('Notificação atualizada para:', track.title);
@@ -56,9 +89,9 @@ class NotificationService {
         }
       });
 
-      // Evento quando o estado de reprodução muda (play/pause)
-      TrackPlayer.addEventListener(Event.PlaybackState, async (data) => {
-        const state = data.state;
+      // Evento para mudança de estado de reprodução
+      TrackPlayer.addEventListener(Event.PlaybackState, async () => {
+        const state = await TrackPlayer.getState();
 
         if (state === State.Playing) {
           console.log('Notificação: Reproduzindo');
@@ -68,6 +101,15 @@ class NotificationService {
           console.log('Notificação: Parado');
         }
       });
+
+      // Registro de erros na reprodução
+      TrackPlayer.addEventListener(Event.PlaybackError, (error) => {
+        console.error('Erro durante a reprodução:', error);
+      });
+
+      // Marcar como registrado
+      this.areEventsRegistered = true;
+      console.log('Eventos de reprodução registrados com sucesso.');
     } catch (error) {
       console.error('Erro ao registrar eventos de reprodução:', error);
     }
@@ -81,13 +123,11 @@ class NotificationService {
     try {
       AppState.addEventListener('change', async (nextAppState) => {
         if (nextAppState === 'background') {
-          // App foi para segundo plano
           const playbackState = await TrackPlayer.getState();
           if (playbackState === State.Playing) {
             console.log('App em segundo plano, mantendo notificação ativa');
           }
         } else if (nextAppState === 'active') {
-          // App voltou para primeiro plano
           console.log('App em primeiro plano');
         }
       });

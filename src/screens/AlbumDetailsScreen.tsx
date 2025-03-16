@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import FastImage from 'react-native-fast-image';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
 import { Song } from '../types/song';
 import { useNavigation } from '@react-navigation/native';
 import { SongList } from '../components/SongList';
-import TrackPlayer from 'react-native-track-player';
+import { Audio } from 'expo-av';
 
 type AlbumDetailsRouteProp = RouteProp<RootStackParamList, 'AlbumDetails'>;
 type AlbumDetailsNavigationProp = StackNavigationProp<RootStackParamList, 'AlbumDetails'>;
@@ -18,11 +17,10 @@ interface AlbumDetailsScreenProps {
 }
 
 export function AlbumDetailsScreen({ route, navigation }: AlbumDetailsScreenProps) {
-  const { album } = route.params || {}; // Adiciona proteção caso o parâmetro esteja ausente
+  const { album } = route.params || {};
   const playerNavigation = useNavigation<StackNavigationProp<RootStackParamList, 'Player'>>();
-  const [isLoading, setIsLoading] = useState(false); // Feedback de carregamento
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Validação se o álbum não foi passado
   if (!album) {
     return (
       <View style={styles.container}>
@@ -34,24 +32,20 @@ export function AlbumDetailsScreen({ route, navigation }: AlbumDetailsScreenProp
     );
   }
 
-  const shuffleSongs = (songs: Song[]) => [...songs].sort(() => Math.random() - 0.5); // Embaralha as músicas
-
-  const prepareTracks = (songs: Song[]) =>
-    songs.map(song => ({
-      id: song.path,
-      url: song.path,
-      title: song.name,
-      artist: song.artist,
-      album: song.album,
-      artwork: song.cover || undefined,
-    }));
+  const shuffleSongs = (songs: Song[]) => [...songs].sort(() => Math.random() - 0.5);
 
   const handlePlaySong = async (song: Song) => {
     setIsLoading(true);
     try {
-      await TrackPlayer.reset();
-      await TrackPlayer.add(prepareTracks([song]));
-      await TrackPlayer.play();
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: song.path },
+        { shouldPlay: true }
+      );
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
       playerNavigation.navigate('Player', { song });
     } catch (error) {
       console.error('Erro ao reproduzir música:', error);
@@ -64,9 +58,15 @@ export function AlbumDetailsScreen({ route, navigation }: AlbumDetailsScreenProp
     if (album.songs.length === 0) return;
     setIsLoading(true);
     try {
-      await TrackPlayer.reset();
-      await TrackPlayer.add(prepareTracks(album.songs));
-      await TrackPlayer.play();
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: album.songs[0].path },
+        { shouldPlay: true }
+      );
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
       playerNavigation.navigate('Player', { song: album.songs[0] });
     } catch (error) {
       console.error('Erro ao reproduzir álbum:', error);
@@ -80,9 +80,15 @@ export function AlbumDetailsScreen({ route, navigation }: AlbumDetailsScreenProp
     setIsLoading(true);
     try {
       const shuffledSongs = shuffleSongs(album.songs);
-      await TrackPlayer.reset();
-      await TrackPlayer.add(prepareTracks(shuffledSongs));
-      await TrackPlayer.play();
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: shuffledSongs[0].path },
+        { shouldPlay: true }
+      );
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
       playerNavigation.navigate('Player', { song: shuffledSongs[0] });
     } catch (error) {
       console.error('Erro ao reproduzir músicas aleatórias:', error);
@@ -104,20 +110,16 @@ export function AlbumDetailsScreen({ route, navigation }: AlbumDetailsScreenProp
 
   return (
     <View style={styles.container}>
-      {/* Botão de Voltar no Topo */}
-      <TouchableOpacity style={styles.backButtonTop} onPress={handleBackPress} accessibilityLabel="Voltar para a tela anterior">
+      <TouchableOpacity style={styles.backButtonTop} onPress={handleBackPress}>
         <Text style={styles.backButtonText}>Voltar</Text>
       </TouchableOpacity>
 
       <View style={styles.header}>
         {album.cover ? (
-          <FastImage
-            source={{
-              uri: album.cover,
-              priority: FastImage.priority.normal,
-              cache: FastImage.cacheControl.immutable,
-            }}
+          <Image
+            source={{ uri: album.cover }}
             style={styles.albumCover}
+            resizeMode="cover"
           />
         ) : (
           <View style={[styles.albumCover, styles.albumCoverPlaceholder]}>
@@ -131,7 +133,6 @@ export function AlbumDetailsScreen({ route, navigation }: AlbumDetailsScreenProp
         </View>
       </View>
 
-      {/* Spinner de Carregamento */}
       {isLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4CAF50" />
@@ -139,15 +140,13 @@ export function AlbumDetailsScreen({ route, navigation }: AlbumDetailsScreenProp
         </View>
       )}
 
-      {/* Botões de Ação */}
-      <TouchableOpacity style={styles.playAllButton} onPress={handlePlayAll} accessibilityLabel="Reproduzir todas as músicas do álbum">
+      <TouchableOpacity style={styles.playAllButton} onPress={handlePlayAll}>
         <Text style={styles.playAllButtonText}>Reproduzir Todas</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.shuffleButton} onPress={handleShufflePlay} accessibilityLabel="Reproduzir músicas do álbum em ordem aleatória">
+      <TouchableOpacity style={styles.shuffleButton} onPress={handleShufflePlay}>
         <Text style={styles.shuffleButtonText}>Reproduzir Aleatoriamente</Text>
       </TouchableOpacity>
 
-      {/* Lista de Músicas */}
       <SongList
         songs={album.songs}
         onSelectSong={handlePlaySong}

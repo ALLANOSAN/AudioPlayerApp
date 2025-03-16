@@ -1,40 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Button, FlatList, StyleSheet, Modal, TouchableOpacity } from 'react-native';
-import TrackPlayer from 'react-native-track-player';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import { Song } from '../types/song';
+import { Audio } from 'expo-av';
 
 const ArtistsScreen = () => {
   const [artists, setArtists] = useState<any[]>([]);
   const [selectedArtist, setSelectedArtist] = useState<any | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedAlbumSongs, setSelectedAlbumSongs] = useState<Song[]>([]);
-  const [tabIndex, setTabIndex] = useState(0); // Gerencia a aba selecionada
+  const [tabIndex, setTabIndex] = useState(0);
   const [routes] = useState([
     { key: 'songs', title: 'Músicas' },
     { key: 'albums', title: 'Álbuns' },
   ]);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
 
   useEffect(() => {
+    // Simulação para carregar uma fila de músicas
     const loadQueue = async () => {
-      const queue = await TrackPlayer.getQueue(); // Obtém músicas do player
+      const queue: Song[] = []; // Aqui você pode carregar as músicas de uma fonte externa
       organizeByArtist(queue);
     };
 
     loadQueue();
-  }, []);
 
-  // Converte Song para o formato esperado pelo TrackPlayer
-  const mapSongToTrack = (song: Song) => ({
-    id: song.path, // Usa o caminho como ID único
-    url: song.path, // Caminho para o arquivo
-    title: song.name, // Nome da música
-    artist: song.artist, // Artista
-    album: song.album, // Álbum
-    artwork: song.cover, // Capa
-  });
+    return () => {
+      if (sound) {
+        sound.unloadAsync(); // Libera o som ao desmontar
+      }
+    };
+  }, [sound]);
 
-  const organizeByArtist = (songs: any[]) => {
+  const organizeByArtist = (songs: Song[]) => {
     const artistMap: { [key: string]: any } = {};
 
     songs.forEach((song) => {
@@ -70,13 +68,28 @@ const ArtistsScreen = () => {
 
   const playAllSongs = async (songs: Song[], startIndex: number = 0) => {
     try {
-      // Converte o array de músicas para o formato TrackPlayer
-      const tracks = songs.map(mapSongToTrack);
-  
-      await TrackPlayer.reset(); // Limpa a fila atual
-      await TrackPlayer.add(tracks); // Adiciona todas as músicas à fila
-      await TrackPlayer.skip(startIndex); // Usa o índice para pular para a música clicada
-      await TrackPlayer.play(); // Começa a reprodução
+      if (sound) {
+        await sound.unloadAsync(); // Libera o som anterior
+      }
+
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: songs[startIndex].path },
+        { shouldPlay: true }
+      );
+
+      setSound(newSound);
+
+      // Adiciona evento para reproduzir a próxima música automaticamente
+      newSound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          const nextIndex = startIndex + 1;
+          if (nextIndex < songs.length) {
+            playAllSongs(songs, nextIndex);
+          } else {
+            console.log('Fim da reprodução da lista.');
+          }
+        }
+      });
     } catch (error) {
       console.error('Erro ao reproduzir músicas:', error);
     }
@@ -89,7 +102,7 @@ const ArtistsScreen = () => {
   const SongsTab = () => (
     <FlatList
       data={selectedArtist?.albums.flatMap((album: any) => album.songs) || []}
-      keyExtractor={(item) => item.path} // Usa `path` como identificador único
+      keyExtractor={(item) => item.path}
       renderItem={({ item, index }) => (
         <TouchableOpacity
           onPress={() =>
@@ -105,7 +118,7 @@ const ArtistsScreen = () => {
   const AlbumsTab = () => (
     <FlatList
       data={selectedArtist?.albums || []}
-      keyExtractor={(item) => item.name} // Usa o nome do álbum como chave
+      keyExtractor={(item) => item.name}
       renderItem={({ item }) => (
         <TouchableOpacity onPress={() => showAlbumSongs(item.songs)}>
           <Text style={styles.albumName}>{item.name}</Text>
@@ -118,7 +131,7 @@ const ArtistsScreen = () => {
     <View style={styles.container}>
       <FlatList
         data={artists}
-        keyExtractor={(item) => item.name} // Usa o nome do artista como chave
+        keyExtractor={(item) => item.name}
         renderItem={({ item }) => (
           <TouchableOpacity onPress={() => navigateToArtistDetails(item)}>
             <Text style={styles.artistName}>{item.name}</Text>
@@ -126,7 +139,6 @@ const ArtistsScreen = () => {
         )}
       />
 
-      {/* Modal com Abas */}
       <Modal visible={modalVisible} animationType="slide">
         <View style={styles.modalContainer}>
           <Text style={styles.modalTitle}>{selectedArtist?.name}</Text>
@@ -145,13 +157,12 @@ const ArtistsScreen = () => {
         </View>
       </Modal>
 
-      {/* Modal para mostrar músicas do álbum */}
       <Modal visible={selectedAlbumSongs.length > 0} animationType="slide">
         <View style={styles.modalContainer}>
           <Text style={styles.modalTitle}>Músicas do Álbum</Text>
           <FlatList
             data={selectedAlbumSongs}
-            keyExtractor={(item) => item.path} // Usa `path` como identificador único
+            keyExtractor={(item) => item.path}
             renderItem={({ item, index }) => (
               <TouchableOpacity onPress={() => playAllSongs(selectedAlbumSongs, index)}>
                 <Text style={styles.songName}>{item.name}</Text>

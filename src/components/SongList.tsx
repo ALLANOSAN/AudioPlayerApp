@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
-import FastImage from 'react-native-fast-image';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Song } from '../types/song';
 
 interface SongListProps {
@@ -39,13 +38,10 @@ export function SongList({
       
       {showCover && (
         item.cover ? (
-          <FastImage
-            source={{ 
-              uri: item.cover,
-              priority: FastImage.priority.normal,
-              cache: FastImage.cacheControl.immutable
-            }}
+          <Image
+            source={{ uri: item.cover }}
             style={styles.songCover}
+            resizeMode="cover" // Garante que a imagem se ajuste ao espaço
           />
         ) : (
           <View style={[styles.songCover, styles.defaultCover]}>

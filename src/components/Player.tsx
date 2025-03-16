@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Button, Text, Image, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
-import TrackPlayer, { Event } from 'react-native-track-player';
 import Slider from '@react-native-community/slider';
+import { Audio } from 'expo-av';
 
 interface Song {
   path: string;
@@ -16,6 +16,7 @@ interface PlayerProps {
 }
 
 export function Player({ currentSong }: PlayerProps) {
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -24,54 +25,66 @@ export function Player({ currentSong }: PlayerProps) {
   useEffect(() => {
     const setupPlayer = async () => {
       setIsLoading(true); // Exibe o indicador de carregamento
-      await TrackPlayer.setupPlayer();
-      await TrackPlayer.add({
-        id: currentSong.path,
-        url: currentSong.path,
-        title: currentSong.name,
-        artist: currentSong.artist,
-        album: currentSong.album,
+
+      // Libere o som anterior, se existir
+      if (sound) {
+        await sound.unloadAsync();
+      }
+
+      // Cria um novo som
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: currentSong.path },
+        { shouldPlay: false }
+      );
+
+      // Acompanhe atualizações de progresso
+      newSound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded) {
+          setCurrentTime(status.positionMillis / 1000); // Atualiza o progresso
+          if (status.didJustFinish) {
+            setIsPlaying(false); // Atualiza o estado quando terminar
+          }
+        }
       });
 
-      setDuration(await TrackPlayer.getDuration());
+      // Obtém informações sobre a duração do áudio
+      const status = await newSound.getStatusAsync();
+      if (status.isLoaded && status.durationMillis !== undefined) {
+        setDuration(status.durationMillis / 1000); // Define a duração em segundos
+      }
 
-      // Atualiza a posição do player manualmente usando setInterval
-      const interval = setInterval(async () => {
-        const progress = await TrackPlayer.getPosition();
-        setCurrentTime(progress);
-      }, 1000);
-
+      setSound(newSound);
       setIsLoading(false); // Oculta o indicador de carregamento
-
-      return () => {
-        clearInterval(interval); // Limpa o intervalo ao desmontar
-        TrackPlayer.reset();
-      };
     };
 
     setupPlayer();
+
+    return () => {
+      // Limpa o som ao desmontar
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
   }, [currentSong]);
 
   const play = async () => {
-    await TrackPlayer.play();
-    setIsPlaying(true);
+    if (sound) {
+      await sound.playAsync();
+      setIsPlaying(true);
+    }
   };
 
   const pause = async () => {
-    await TrackPlayer.pause();
-    setIsPlaying(false);
-  };
-
-  const skipToNext = async () => {
-    await TrackPlayer.skipToNext();
-  };
-
-  const skipToPrevious = async () => {
-    await TrackPlayer.skipToPrevious();
+    if (sound) {
+      await sound.pauseAsync();
+      setIsPlaying(false);
+    }
   };
 
   const seekTo = async (time: number) => {
-    await TrackPlayer.seekTo(time);
+    if (sound) {
+      await sound.setPositionAsync(time * 1000); // Define a posição em milissegundos
+    }
   };
 
   const seekForward = async () => {
@@ -117,8 +130,6 @@ export function Player({ currentSong }: PlayerProps) {
         onPress={isPlaying ? pause : play}
         accessibilityLabel={isPlaying ? 'Botão para pausar música' : 'Botão para reproduzir música'}
       />
-      <Button title="Próxima" onPress={skipToNext} accessibilityLabel="Avançar para próxima música" />
-      <Button title="Anterior" onPress={skipToPrevious} accessibilityLabel="Voltar para música anterior" />
       <Button title="Avançar 10s" onPress={seekForward} accessibilityLabel="Avançar 10 segundos na música" />
       <Button title="Retroceder 10s" onPress={seekBackward} accessibilityLabel="Retroceder 10 segundos na música" />
       <Slider

@@ -7,7 +7,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { Song } from '../types/song';
 import { RootStackParamList } from '../types/navigation';
 import { SongList } from '../components/SongList';
-import TrackPlayer from 'react-native-track-player';
+import { Audio } from 'expo-av';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'Player'>;
 
@@ -16,6 +16,7 @@ const SongsScreen = () => {
   const [filteredSongs, setFilteredSongs] = useState<Song[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
   const navigation = useNavigation<NavigationProp>();
 
   useEffect(() => {
@@ -25,12 +26,12 @@ const SongsScreen = () => {
     }
 
     const query = searchQuery.toLowerCase();
-    const filtered = songs.filter(song => 
-      song.name.toLowerCase().includes(query) || 
-      song.artist.toLowerCase().includes(query) || 
+    const filtered = songs.filter(song =>
+      song.name.toLowerCase().includes(query) ||
+      song.artist.toLowerCase().includes(query) ||
       song.album.toLowerCase().includes(query)
     );
-    
+
     setFilteredSongs(filtered);
   }, [searchQuery, songs]);
 
@@ -44,7 +45,7 @@ const SongsScreen = () => {
         return;
       }
 
-      const file = result.assets[0]; 
+      const file = result.assets[0];
 
       if (!file) {
         console.error('Nenhum arquivo foi selecionado.');
@@ -77,8 +78,8 @@ const SongsScreen = () => {
         album: album,
       }];
 
-      setSongs(audioFiles);
-      setFilteredSongs(audioFiles);
+      setSongs(prevSongs => [...prevSongs, ...audioFiles]);
+      setFilteredSongs(prevSongs => [...prevSongs, ...audioFiles]);
     } catch (err) {
       console.error('Erro ao selecionar a pasta:', err);
     } finally {
@@ -86,23 +87,23 @@ const SongsScreen = () => {
     }
   };
 
-  const fetchSongInfo = async (songName: string): Promise<{title: string, artist: string, album: string, cover: string}> => {
+  const fetchSongInfo = async (songName: string): Promise<{ title: string, artist: string, album: string, cover: string }> => {
     const apiKey = 'c0bc9642cd67227a10ce0a129981513b';
     try {
       const trackResponse = await axios.get(`http://ws.audioscrobbler.com/2.0/?method=track.search&track=${songName}&api_key=${apiKey}&format=json`);
       const tracks = trackResponse.data.results?.trackmatches?.track || [];
-      
+
       if (tracks.length === 0) {
         return { title: songName, artist: 'Artista Desconhecido', album: 'Álbum Desconhecido', cover: '' };
       }
-      
+
       const track = tracks[0];
       const artist = track.artist;
 
       const albumResponse = await axios.get(`http://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&api_key=${apiKey}&artist=${artist}&format=json`);
       const albums = albumResponse.data.topalbums?.album || [];
       const cover = albums.length > 0 ? albums[0].image[3]['#text'] : '';
-      
+
       return {
         title: track.name || songName,
         artist: artist || 'Artista Desconhecido',
@@ -117,17 +118,23 @@ const SongsScreen = () => {
 
   const playSong = async (song: Song) => {
     try {
-      await TrackPlayer.reset();
-      await TrackPlayer.add({
-        id: song.path,
-        url: song.path,
-        title: song.name,
-        artist: song.artist,
-        album: song.album,
-        artwork: song.cover || undefined
+      if (sound) {
+        await sound.unloadAsync(); // Libera o som atual
+      }
+
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: song.path },
+        { shouldPlay: true }
+      );
+
+      setSound(newSound);
+
+      newSound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          console.log('Reprodução finalizada.');
+        }
       });
-      
-      await TrackPlayer.play();
+
       navigation.navigate('Player', { song });
     } catch (error) {
       console.error('Erro ao reproduzir música:', error);
@@ -151,8 +158,8 @@ const SongsScreen = () => {
           accessibilityHint="Digite para buscar músicas, artistas ou álbuns"
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity 
-            style={styles.clearButton} 
+          <TouchableOpacity
+            style={styles.clearButton}
             onPress={clearSearch}
             accessible={true}
             accessibilityLabel="Limpar busca"
@@ -163,7 +170,7 @@ const SongsScreen = () => {
         )}
       </View>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.addButton}
         onPress={addSongsFromFolder}
         disabled={isLoading}
@@ -178,7 +185,7 @@ const SongsScreen = () => {
       </TouchableOpacity>
 
       {isLoading ? (
-        <View 
+        <View
           style={styles.loadingContainer}
           accessible={true}
           accessibilityLabel="Carregando músicas"

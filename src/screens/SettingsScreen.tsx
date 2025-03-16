@@ -1,14 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, Linking, TouchableOpacity } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
-import { useLanguage } from '../contexts/LanguageContext';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { LanguageSelector } from '../components/LanguageSelector';
+import { LanguageSelector } from '../components/LanguageSelector'; // Verifique se `LanguageSelector` foi ajustado para trabalhar com react-i18next
+import { useTranslation } from 'react-i18next'; // Substitui o uso de `useLanguage`
 import { StatusBar, StatusBarStyle } from 'react-native';
 
 export default function SettingsScreen() {
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t } = useTranslation(); // Usar o hook do react-i18next para traduções
   
   const appVersion = '1.0.0';
   
@@ -26,22 +26,23 @@ export default function SettingsScreen() {
       <ScrollView style={styles.scrollView}>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            {t('settings')}
+            {t('settings')} {/* Tradução para "Configurações" */}
           </Text>
           
           <ThemeToggle style={styles.settingItem} />
           
+          {/* Certifique-se de que LanguageSelector foi ajustado para funcionar com i18next */}
           <LanguageSelector style={styles.settingItem} />
         </View>
         
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            {t('about')}
+            {t('about')} {/* Tradução para "Sobre" */}
           </Text>
           
           <View style={[styles.settingItem, { backgroundColor: theme.card }]}>
             <Text style={[styles.settingLabel, { color: theme.text }]}>
-              {t('version')}
+              {t('version')} {/* Tradução para "Versão" */}
             </Text>
             <Text style={[styles.settingValue, { color: theme.secondaryText }]}>
               {appVersion}
@@ -96,4 +97,4 @@ const styles = StyleSheet.create({
   settingValue: {
     fontSize: 16,
   },
-}); 
+});

@@ -9,9 +9,12 @@ import { CardStyleInterpolators } from '@react-navigation/stack';
 import { Easing } from 'react-native-reanimated';
 import { StatusBar, StatusBarStyle } from 'react-native';
 
+// Internacionalização
+import { I18nextProvider, useTranslation } from 'react-i18next';
+import i18n from './src/i18n'; // Importação do arquivo de configuração do i18n
+
 // Contextos
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
-import { LanguageProvider, useLanguage } from './src/contexts/LanguageContext';
 
 // Telas
 import AlbumsScreen from './src/screens/AlbumsScreen';
@@ -27,6 +30,7 @@ import { RootStackParamList, TabParamList } from './src/types/navigation';
 
 // Serviços
 import { notificationService } from './src/services/NotificationService';
+import { downloadTranslations } from './src/services/crowdinService';
 
 // Habilitar otimizações de tela nativa
 enableScreens();
@@ -60,7 +64,7 @@ const screenOptions = {
 // Componente principal de navegação
 function AppNavigator() {
   const { theme, isDark } = useTheme();
-  const { t } = useLanguage();
+  const { t } = useTranslation(); // Usando react-i18next para acessar traduções
 
   // Inicializar o serviço de notificações
   useEffect(() => {
@@ -113,14 +117,14 @@ function AppNavigator() {
           component={TabNavigator} 
           options={{ 
             headerShown: false,
-            title: t('appName')
+            title: t('appName'), // Chama a tradução para o título do app
           }} 
         />
         <Stack.Screen 
           name="Player" 
           component={PlayerScreen} 
           options={{
-            title: t('player'),
+            title: t('player'), // Tradução para "Player"
             cardStyleInterpolator: CardStyleInterpolators.forVerticalIOS,
           }}
         />
@@ -128,20 +132,20 @@ function AppNavigator() {
           name="AlbumDetails" 
           component={AlbumDetailsScreen} 
           options={{
-            title: t('albumDetails'),
+            title: t('albumDetails'), // Tradução para "Detalhes do Álbum"
           }}
         />
         <Stack.Screen 
           name="ArtistDetails" 
           options={{
-            title: t('artists'),
+            title: t('artists'), // Tradução para "Artistas"
           }}
           component={ArtistsScreen} 
         />
         <Stack.Screen 
           name="PlaylistDetails" 
           options={{
-            title: t('playlists'),
+            title: t('playlists'), // Tradução para "Playlists"
           }}
           component={PlaylistsScreen} 
         />
@@ -152,7 +156,7 @@ function AppNavigator() {
 
 function TabNavigator() {
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t } = useTranslation(); // Usando react-i18next para traduções
 
   return (
     <Tab.Navigator
@@ -186,7 +190,7 @@ function TabNavigator() {
         component={MusicScreen} 
         options={{
           title: t('songs'),
-          tabBarLabel: t('songs'),
+          tabBarLabel: t('songs'), // Tradução para "Músicas"
         }}
       />
       <Tab.Screen 
@@ -194,7 +198,7 @@ function TabNavigator() {
         component={AlbumsScreen} 
         options={{
           title: t('albums'),
-          tabBarLabel: t('albums'),
+          tabBarLabel: t('albums'), // Tradução para "Álbuns"
         }}
       />
       <Tab.Screen 
@@ -202,7 +206,7 @@ function TabNavigator() {
         component={ArtistsScreen} 
         options={{
           title: t('artists'),
-          tabBarLabel: t('artists'),
+          tabBarLabel: t('artists'), // Tradução para "Artistas"
         }}
       />
       <Tab.Screen 
@@ -210,7 +214,7 @@ function TabNavigator() {
         component={PlaylistsScreen} 
         options={{
           title: t('playlists'),
-          tabBarLabel: t('playlists'),
+          tabBarLabel: t('playlists'), // Tradução para "Playlists"
         }}
       />
       <Tab.Screen 
@@ -218,7 +222,7 @@ function TabNavigator() {
         component={SettingsScreen} 
         options={{
           title: t('settings'),
-          tabBarLabel: t('settings'),
+          tabBarLabel: t('settings'), // Tradução para "Configurações"
         }}
       />
     </Tab.Navigator>
@@ -227,12 +231,25 @@ function TabNavigator() {
 
 // Componente raiz com providers
 function App() {
+  useEffect(() => {
+    const syncTranslations = async () => {
+      try {
+        await downloadTranslations('pt'); // Sincroniza traduções ao iniciar o app
+        console.log('Traduções sincronizadas com sucesso!');
+      } catch (error) {
+        console.error('Erro ao sincronizar traduções:', error);
+      }
+    };
+
+    syncTranslations();
+  }, []);
+
   return (
-    <ThemeProvider>
-      <LanguageProvider>
+    <I18nextProvider i18n={i18n}>
+      <ThemeProvider>
         <AppNavigator />
-      </LanguageProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </I18nextProvider>
   );
 }
 
