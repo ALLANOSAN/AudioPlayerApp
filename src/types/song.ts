@@ -1,8 +1,8 @@
-// Definição do tipo Song para uso em todo o aplicativo
+// src/types/Song.ts
 export interface Song {
-  path: string;
-  name: string;
-  artist: string;
-  cover: string;
-  album: string; // Tornando obrigatório para compatibilidade
-} 
+  path: string; // Caminho do arquivo, usado como ID único
+  name: string; // Nome da música
+  artist: string; // Nome do artista
+  cover: string; // Caminho ou URL para a capa do álbum
+  album: string; // Nome do álbum
+}

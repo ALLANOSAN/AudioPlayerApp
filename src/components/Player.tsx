@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Button, Text, Image, StyleSheet } from 'react-native';
-import TrackPlayer from 'react-native-track-player';
+import { View, Button, Text, Image, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
+import TrackPlayer, { Event } from 'react-native-track-player';
 import Slider from '@react-native-community/slider';
 
 interface Song {
@@ -19,9 +19,11 @@ export function Player({ currentSong }: PlayerProps) {
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const setupPlayer = async () => {
+      setIsLoading(true); // Exibe o indicador de carregamento
       await TrackPlayer.setupPlayer();
       await TrackPlayer.add({
         id: currentSong.path,
@@ -31,19 +33,19 @@ export function Player({ currentSong }: PlayerProps) {
         album: currentSong.album,
       });
 
-      const track = await TrackPlayer.getQueue();
-      if (track.length > 0 && track[0].duration) {
-        setDuration(track[0].duration);
-      }
+      setDuration(await TrackPlayer.getDuration());
 
+      // Atualiza a posição do player manualmente usando setInterval
       const interval = setInterval(async () => {
-        const { position } = await TrackPlayer.getProgress();
-        setCurrentTime(position);
+        const progress = await TrackPlayer.getPosition();
+        setCurrentTime(progress);
       }, 1000);
 
+      setIsLoading(false); // Oculta o indicador de carregamento
+
       return () => {
-        clearInterval(interval);
-        TrackPlayer.reset(); // Usando reset() no lugar de destroy()
+        clearInterval(interval); // Limpa o intervalo ao desmontar
+        TrackPlayer.reset();
       };
     };
 
@@ -86,6 +88,21 @@ export function Player({ currentSong }: PlayerProps) {
     }
   };
 
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text>Carregando player...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Image source={{ uri: currentSong.cover }} style={styles.albumCover} />
@@ -93,24 +110,30 @@ export function Player({ currentSong }: PlayerProps) {
       <Text>{currentSong.artist}</Text>
       <Text>{currentSong.album}</Text>
       <Text>
-        {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')} /
-        {Math.floor(duration / 60)}:{Math.floor(duration % 60).toString().padStart(2, '0')}
+        {formatTime(currentTime)} / {formatTime(duration)}
       </Text>
-      <Button title={isPlaying ? 'Pausar' : 'Reproduzir'} onPress={isPlaying ? pause : play} />
-      <Button title="Próxima" onPress={skipToNext} />
-      <Button title="Anterior" onPress={skipToPrevious} />
-      <Button title="Avançar 10s" onPress={seekForward} />
-      <Button title="Retroceder 10s" onPress={seekBackward} />
+      <Button
+        title={isPlaying ? 'Pausar' : 'Reproduzir'}
+        onPress={isPlaying ? pause : play}
+        accessibilityLabel={isPlaying ? 'Botão para pausar música' : 'Botão para reproduzir música'}
+      />
+      <Button title="Próxima" onPress={skipToNext} accessibilityLabel="Avançar para próxima música" />
+      <Button title="Anterior" onPress={skipToPrevious} accessibilityLabel="Voltar para música anterior" />
+      <Button title="Avançar 10s" onPress={seekForward} accessibilityLabel="Avançar 10 segundos na música" />
+      <Button title="Retroceder 10s" onPress={seekBackward} accessibilityLabel="Retroceder 10 segundos na música" />
       <Slider
         minimumValue={0}
         maximumValue={duration}
         value={currentTime}
-        onValueChange={seekTo}
+        onSlidingComplete={seekTo}
         style={styles.slider}
+        accessibilityLabel="Controle deslizante para ajustar o progresso da música"
       />
     </View>
   );
 }
+
+const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -127,15 +150,21 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
+    textAlign: 'center',
   },
   albumCover: {
-    width: '100%',
-    height: 300,
+    width: width * 0.8, // Proporção responsiva
+    height: width * 0.8,
     borderRadius: 10,
-    marginBottom: 10,
+    marginBottom: 20,
   },
   slider: {
     width: '100%',
     height: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

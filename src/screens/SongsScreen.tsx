@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, SafeAreaView } from 'react-native';
-import * as FileSystem from 'expo-file-system'; // Alterado para expo-file-system
+import * as DocumentPicker from 'expo-document-picker';
 import axios from 'axios';
-import DocumentPicker from '@react-native-documents/picker';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Song } from '../types/song';
@@ -19,7 +18,6 @@ const SongsScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation<NavigationProp>();
 
-  // Efeito para filtrar músicas quando a busca ou a lista de músicas mudar
   useEffect(() => {
     if (searchQuery.trim() === '') {
       setFilteredSongs(songs);
@@ -39,54 +37,45 @@ const SongsScreen = () => {
   const addSongsFromFolder = async () => {
     try {
       setIsLoading(true);
-      const folder = await DocumentPicker.pickDirectory();
-      
-      // Ler os arquivos do diretório selecionado
-      const files = await FileSystem.readDirectoryAsync(folder.uri); // Alterado para usar expo-file-system
-      const audioFiles: Song[] = [];
+      const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*', copyToCacheDirectory: true });
 
-      // Verificar se a lista de arquivos não está vazia
-      if (!files || files.length === 0) {
-        console.error('Nenhum arquivo encontrado no diretório selecionado.');
+      if (result.canceled) {
+        console.log('Seleção de arquivo cancelada.');
         return;
       }
 
-      for (const filePath of files) { // Renomeado para filePath
-        if (filePath.endsWith('.mp3') || filePath.endsWith('.m4a')) {
-          try {
-            // Extrair nome do arquivo sem extensão para usar como título
-            const fileName = filePath.split('/').pop()?.replace(/\.[^/.]+$/, "") || '';
-            
-            // Tentar obter metadados usando react-native-get-music-files
-            let title = fileName;
-            let artist = 'Artista Desconhecido';
-            let album = 'Álbum Desconhecido';
-            let cover = '';
-            
-            try {
-              // Tentar obter metadados da API Last.fm
-              const songInfo = await fetchSongInfo(fileName);
-              title = songInfo.title || fileName;
-              artist = songInfo.artist || 'Artista Desconhecido';
-              album = songInfo.album || 'Álbum Desconhecido';
-              cover = songInfo.cover || '';
-            } catch (metadataError) {
-              console.error('Erro ao obter metadados:', metadataError);
-            }
-            
-            // Adicionar dados da música junto com o caminho do arquivo
-            audioFiles.push({
-              path: filePath, // Use filePath aqui
-              name: title,
-              artist: artist,
-              cover: cover,
-              album: album,
-            });
-          } catch (fileError) {
-            console.error('Erro ao processar arquivo:', fileError);
-          }
-        }
+      const file = result.assets[0]; 
+
+      if (!file) {
+        console.error('Nenhum arquivo foi selecionado.');
+        return;
       }
+
+      const filePath = file.uri;
+      const fileName = file.name.replace(/\.[^/.]+$/, "");
+
+      let title = fileName;
+      let artist = 'Artista Desconhecido';
+      let album = 'Álbum Desconhecido';
+      let cover = '';
+
+      try {
+        const songInfo = await fetchSongInfo(fileName);
+        title = songInfo.title || fileName;
+        artist = songInfo.artist || 'Artista Desconhecido';
+        album = songInfo.album || 'Álbum Desconhecido';
+        cover = songInfo.cover || '';
+      } catch (metadataError) {
+        console.error('Erro ao obter metadados:', metadataError);
+      }
+
+      const audioFiles: Song[] = [{
+        path: filePath,
+        name: title,
+        artist: artist,
+        cover: cover,
+        album: album,
+      }];
 
       setSongs(audioFiles);
       setFilteredSongs(audioFiles);
@@ -100,7 +89,6 @@ const SongsScreen = () => {
   const fetchSongInfo = async (songName: string): Promise<{title: string, artist: string, album: string, cover: string}> => {
     const apiKey = 'c0bc9642cd67227a10ce0a129981513b';
     try {
-      // Buscar informações da música
       const trackResponse = await axios.get(`http://ws.audioscrobbler.com/2.0/?method=track.search&track=${songName}&api_key=${apiKey}&format=json`);
       const tracks = trackResponse.data.results?.trackmatches?.track || [];
       
@@ -110,8 +98,7 @@ const SongsScreen = () => {
       
       const track = tracks[0];
       const artist = track.artist;
-      
-      // Buscar informações do álbum
+
       const albumResponse = await axios.get(`http://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&api_key=${apiKey}&artist=${artist}&format=json`);
       const albums = albumResponse.data.topalbums?.album || [];
       const cover = albums.length > 0 ? albums[0].image[3]['#text'] : '';
@@ -130,7 +117,6 @@ const SongsScreen = () => {
 
   const playSong = async (song: Song) => {
     try {
-      // Resetar o player e adicionar a música selecionada
       await TrackPlayer.reset();
       await TrackPlayer.add({
         id: song.path,
@@ -141,10 +127,7 @@ const SongsScreen = () => {
         artwork: song.cover || undefined
       });
       
-      // Iniciar a reprodução
       await TrackPlayer.play();
-      
-      // Navegar para a tela de player com a música selecionada
       navigation.navigate('Player', { song });
     } catch (error) {
       console.error('Erro ao reproduzir música:', error);

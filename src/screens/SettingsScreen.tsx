@@ -13,7 +13,7 @@ export default function SettingsScreen() {
   const appVersion = '1.0.0';
   
   const openGithub = () => {
-    Linking.openURL('https://github.com/seu-usuario/audio-player-app');
+    Linking.openURL('https://github.com/ALLANOSAN/AudioPlayerApp');
   };
   
   return (
