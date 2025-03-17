@@ -11,12 +11,15 @@ import { Audio } from 'expo-av';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'Player'>;
 
+let currentSongIndex = 0; // Índice da música atual
+const songsGlobal: Song[] = []; // Lista de músicas para controle global
+let sound: Audio.Sound | null = null; // Controle de som global
+
 const SongsScreen = () => {
   const [songs, setSongs] = useState<Song[]>([]);
   const [filteredSongs, setFilteredSongs] = useState<Song[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
   const navigation = useNavigation<NavigationProp>();
 
   useEffect(() => {
@@ -78,6 +81,7 @@ const SongsScreen = () => {
         album: album,
       }];
 
+      songsGlobal.push(...audioFiles); // Adiciona globalmente
       setSongs(prevSongs => [...prevSongs, ...audioFiles]);
       setFilteredSongs(prevSongs => [...prevSongs, ...audioFiles]);
     } catch (err) {
@@ -116,31 +120,6 @@ const SongsScreen = () => {
     }
   };
 
-  const playSong = async (song: Song) => {
-    try {
-      if (sound) {
-        await sound.unloadAsync(); // Libera o som atual
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: song.path },
-        { shouldPlay: true }
-      );
-
-      setSound(newSound);
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          console.log('Reprodução finalizada.');
-        }
-      });
-
-      navigation.navigate('Player', { song });
-    } catch (error) {
-      console.error('Erro ao reproduzir música:', error);
-    }
-  };
-
   const clearSearch = () => {
     setSearchQuery('');
   };
@@ -153,17 +132,11 @@ const SongsScreen = () => {
           placeholder="Buscar músicas, artistas ou álbuns..."
           value={searchQuery}
           onChangeText={setSearchQuery}
-          accessible={true}
-          accessibilityLabel="Campo de busca"
-          accessibilityHint="Digite para buscar músicas, artistas ou álbuns"
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity
             style={styles.clearButton}
             onPress={clearSearch}
-            accessible={true}
-            accessibilityLabel="Limpar busca"
-            accessibilityHint="Toque para limpar o texto de busca"
           >
             <Text style={styles.clearButtonText}>✕</Text>
           </TouchableOpacity>
@@ -174,10 +147,6 @@ const SongsScreen = () => {
         style={styles.addButton}
         onPress={addSongsFromFolder}
         disabled={isLoading}
-        accessible={true}
-        accessibilityLabel="Adicionar músicas"
-        accessibilityHint="Toque para selecionar uma pasta com músicas para adicionar à biblioteca"
-        accessibilityState={{ disabled: isLoading }}
       >
         <Text style={styles.addButtonText}>
           {isLoading ? 'Carregando...' : 'Adicionar Músicas'}
@@ -185,19 +154,48 @@ const SongsScreen = () => {
       </TouchableOpacity>
 
       {isLoading ? (
-        <View
-          style={styles.loadingContainer}
-          accessible={true}
-          accessibilityLabel="Carregando músicas"
-        >
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4CAF50" />
           <Text style={styles.loadingText}>Carregando músicas...</Text>
         </View>
       ) : (
-        <SongList songs={filteredSongs} onSelectSong={playSong} />
+        <SongList songs={filteredSongs} onSelectSong={(song) => playCurrentSong(song)} />
       )}
     </SafeAreaView>
   );
+};
+
+export const getCurrentTrack = (direction?: 'next' | 'previous'): Song | null => {
+  if (direction === 'next') {
+    currentSongIndex = (currentSongIndex + 1) % songsGlobal.length;
+  } else if (direction === 'previous') {
+    currentSongIndex =
+      (currentSongIndex - 1 + songsGlobal.length) % songsGlobal.length;
+  }
+  return songsGlobal[currentSongIndex] || null;
+};
+
+export const playCurrentSong = async (song: Song) => {
+  try {
+    if (sound) {
+      await sound.unloadAsync();
+    }
+
+    const { sound: newSound } = await Audio.Sound.createAsync(
+      { uri: song.path },
+      { shouldPlay: true }
+    );
+
+    sound = newSound;
+
+    newSound.setOnPlaybackStatusUpdate((status) => {
+      if (status.isLoaded && status.didJustFinish) {
+        console.log('Reprodução finalizada.');
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao reproduzir música:', error);
+  }
 };
 
 const styles = StyleSheet.create({
@@ -212,11 +210,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: 'white',
     borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
   },
   searchInput: {
     flex: 1,
