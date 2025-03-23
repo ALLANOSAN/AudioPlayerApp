@@ -3,11 +3,9 @@
     "strict": true,
     "esModuleInterop": true,
     "jsx": "react-jsx",
-    "baseUrl": "src",
+    "baseUrl": "./",
     "paths": {
-      "~/*": [
-        "*"
-      ]
+      "~/*": ["src/*"]
     }
   },
   "include": [
@@ -15,7 +13,8 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
-    "src/**/*"
-, "scripts/crowdin.js"  ],
+    "src/**/*",
+    "App.tsx"
+  ],
   "extends": "expo/tsconfig.base"
 }
