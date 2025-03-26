@@ -37,7 +37,7 @@
     "expo": "~52.0.38",
     "expo-av": "~15.0.2",
     "expo-constants": "~17.0.8",
-    "expo-dev-client": "~5.0.4",
+    "expo-dev-client": "~5.0.14",
     "expo-document-picker": "~13.0.3",
     "expo-file-system": "~18.0.11",
     "expo-linking": "~7.0.5",
@@ -56,7 +56,6 @@
     "react-native": "0.76.7",
     "react-native-css-interop": "^0.1.22",
     "react-native-gesture-handler": "~2.20.2",
-    "react-native-get-music-files": "^2.2.4",
     "react-native-gradle-plugin": "^0.71.19",
     "react-native-localize": "^3.3.4",
     "react-native-music-control": "^1.4.1",
@@ -84,7 +83,8 @@
     "nativewind": "^4.1.23",
     "prettier": "^3.5.3",
     "prettier-plugin-tailwindcss": "^0.6.11",
-    "typescript": "~5.8.2"
+    "typescript": "~5.8.2",
+    "@react-native-community/eslint-config":"3.2.0"
   },
   "eslintConfig": {
     "extends": "universe/native",
