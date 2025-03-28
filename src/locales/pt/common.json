@@ -9,5 +9,12 @@
     "edit": "Editar",
     "confirm": "Confirmar",
     "loading": "Carregando...",
-    "version": "Versão"
+    "version": "Versão",
+    "songs": "Músicas",
+    "albums": "Álbuns",
+    "artists": "Artistas",
+    "playlists": "Playlists",
+    "player": "Player",
+    "albumDetails": "Detalhes do Álbum",
+    "appName": "AudioPlayer"
 }
