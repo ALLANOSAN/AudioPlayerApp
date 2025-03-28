@@ -1,52 +1,40 @@
-import TrackPlayer, { Capability, Event, State } from 'react-native-track-player';
 import { AppState } from 'react-native';
+import MusicControl, { Command } from 'react-native-music-control';
+import { Audio } from 'expo-av';
 
-class NotificationService {
-  private isSetup: boolean = false;
-  private areEventsRegistered: boolean = false; // Flag para evitar duplicidade na inscrição de eventos
+export class NotificationService {
+  private static instance: NotificationService;
+  private areEventsRegistered: boolean = false;
 
-  /**
-   * Configura o serviço de notificações para o player de música
-   */
-  async setup() {
-    if (this.isSetup) return;
-
-    try {
-      // Configurar o TrackPlayer para exibir notificações
-      await TrackPlayer.setupPlayer();
-      await TrackPlayer.updateOptions({
-        capabilities: [
-          Capability.Play,
-          Capability.Pause,
-          Capability.Stop,
-          Capability.SkipToNext,
-          Capability.SkipToPrevious,
-        ],
-        compactCapabilities: [Capability.Play, Capability.Pause],
-        notificationCapabilities: [
-          Capability.Play,
-          Capability.Pause,
-          Capability.SkipToNext,
-          Capability.SkipToPrevious,
-        ],
-      });
-
-      // Registrar eventos de reprodução (tanto para foreground quanto para background)
-      this.registerPlaybackEvents();
-
-      // Monitorar estado do aplicativo
-      this.monitorAppState();
-
-      this.isSetup = true;
-      console.log('Serviço de notificações configurado com sucesso');
-    } catch (error) {
-      console.error('Erro ao configurar serviço de notificações:', error);
-    }
+  private constructor() {
+    this.setupMusicControl();
+    this.monitorAppState();
   }
 
-  /**
-   * Registra os eventos de reprodução para atualizar as notificações
-   */
+  public static getInstance(): NotificationService {
+    if (!NotificationService.instance) {
+      NotificationService.instance = new NotificationService();
+    }
+    return NotificationService.instance;
+  }
+
+  private setupMusicControl() {
+    // Configuração básica do MusicControl
+    MusicControl.enableBackgroundMode(true);
+    MusicControl.enableControl('play', true);
+    MusicControl.enableControl('pause', true);
+    MusicControl.enableControl('stop', true);
+    MusicControl.enableControl('nextTrack', true);
+    MusicControl.enableControl('previousTrack', true);
+    MusicControl.enableControl('seek', true);
+    MusicControl.enableControl('changePlaybackPosition', true);
+    
+    // Lidar com interrupções de áudio (chamadas recebidas, etc.)
+    MusicControl.handleAudioInterruptions(true);
+    
+    this.registerPlaybackEvents();
+  }
+
   private registerPlaybackEvents() {
     if (this.areEventsRegistered) {
       console.log('Os eventos de reprodução já foram registrados. Ignorando.');
@@ -54,79 +42,88 @@ class NotificationService {
     }
 
     try {
-      // Eventos de controle remoto e playback
-      TrackPlayer.addEventListener(Event.RemotePlay, async () => {
-        await TrackPlayer.play();
+      // Registrar eventos do MusicControl usando o objeto Command
+      MusicControl.on(Command.play, () => {
+        // Será chamado quando o usuário pressionar o botão play na notificação
+        this.onRemotePlay();
       });
 
-      TrackPlayer.addEventListener(Event.RemotePause, async () => {
-        await TrackPlayer.pause();
+      MusicControl.on(Command.pause, () => {
+        // Será chamado quando o usuário pressionar o botão pause na notificação
+        this.onRemotePause();
       });
 
-      TrackPlayer.addEventListener(Event.RemoteStop, async () => {
-        await TrackPlayer.stop();
+      MusicControl.on(Command.stop, () => {
+        // Será chamado quando o usuário pressionar o botão stop na notificação
+        this.onRemoteStop();
       });
 
-      TrackPlayer.addEventListener(Event.RemoteNext, async () => {
-        await TrackPlayer.skipToNext();
+      MusicControl.on(Command.nextTrack, () => {
+        // Será chamado quando o usuário pressionar o botão next na notificação
+        this.onRemoteNext();
       });
 
-      TrackPlayer.addEventListener(Event.RemotePrevious, async () => {
-        await TrackPlayer.skipToPrevious();
+      MusicControl.on(Command.previousTrack, () => {
+        // Será chamado quando o usuário pressionar o botão previous na notificação
+        this.onRemotePrevious();
       });
 
-      TrackPlayer.addEventListener(Event.RemoteSeek, async (data) => {
-        await TrackPlayer.seekTo(data.position);
+      MusicControl.on(Command.changePlaybackPosition, (position) => {
+        // Será chamado quando o usuário mudar a posição na notificação
+        this.onRemoteSeek(position);
       });
 
-      // Evento para atualização de faixa
-      TrackPlayer.addEventListener(Event.PlaybackTrackChanged, async (data) => {
-        if (data.nextTrack !== null && data.nextTrack !== undefined) {
-          const track = await TrackPlayer.getTrack(data.nextTrack);
-          if (track) {
-            console.log('Notificação atualizada para:', track.title);
-          }
-        }
+      // Adicione este para lidar com o fechamento da notificação (Android)
+      MusicControl.on(Command.closeNotification, () => {
+        // Limpar recursos quando a notificação for fechada
+        this.resetNotification();
       });
 
-      // Evento para mudança de estado de reprodução
-      TrackPlayer.addEventListener(Event.PlaybackState, async () => {
-        const state = await TrackPlayer.getState();
-
-        if (state === State.Playing) {
-          console.log('Notificação: Reproduzindo');
-        } else if (state === State.Paused) {
-          console.log('Notificação: Pausado');
-        } else if (state === State.Stopped) {
-          console.log('Notificação: Parado');
-        }
-      });
-
-      // Registro de erros na reprodução
-      TrackPlayer.addEventListener(Event.PlaybackError, (error) => {
-        console.error('Erro durante a reprodução:', error);
-      });
-
-      // Marcar como registrado
       this.areEventsRegistered = true;
-      console.log('Eventos de reprodução registrados com sucesso.');
     } catch (error) {
       console.error('Erro ao registrar eventos de reprodução:', error);
     }
   }
 
-  /**
-   * Monitora o estado do aplicativo para gerenciar notificações
-   * quando o app está em segundo plano
-   */
+  // Métodos para lidar com eventos remotos
+  // Estes métodos serão implementados pelo componente Player
+  private onRemotePlay: () => void = () => {};
+  private onRemotePause: () => void = () => {};
+  private onRemoteStop: () => void = () => {};
+  private onRemoteNext: () => void = () => {};
+  private onRemotePrevious: () => void = () => {};
+  private onRemoteSeek: (position: number) => void = () => {};
+
+  // Métodos para definir os callbacks
+  public setOnRemotePlay(callback: () => void) {
+    this.onRemotePlay = callback;
+  }
+
+  public setOnRemotePause(callback: () => void) {
+    this.onRemotePause = callback;
+  }
+
+  public setOnRemoteStop(callback: () => void) {
+    this.onRemoteStop = callback;
+  }
+
+  public setOnRemoteNext(callback: () => void) {
+    this.onRemoteNext = callback;
+  }
+
+  public setOnRemotePrevious(callback: () => void) {
+    this.onRemotePrevious = callback;
+  }
+
+  public setOnRemoteSeek(callback: (position: number) => void) {
+    this.onRemoteSeek = callback;
+  }
+
   private monitorAppState() {
     try {
       AppState.addEventListener('change', async (nextAppState) => {
         if (nextAppState === 'background') {
-          const playbackState = await TrackPlayer.getState();
-          if (playbackState === State.Playing) {
-            console.log('App em segundo plano, mantendo notificação ativa');
-          }
+          console.log('App em segundo plano, mantendo notificação ativa');
         } else if (nextAppState === 'active') {
           console.log('App em primeiro plano');
         }
@@ -136,21 +133,45 @@ class NotificationService {
     }
   }
 
-  /**
-   * Atualiza os metadados da notificação
-   */
-  async updateNotificationMetadata(title: string, artist: string, artwork?: string) {
+  async updateNotificationMetadata(title: string, artist: string, artwork?: string, duration?: number) {
     try {
-      await TrackPlayer.updateNowPlayingMetadata({
-        title,
-        artist,
-        artwork: artwork || undefined,
+      MusicControl.setNowPlaying({
+        title: title,
+        artist: artist,
+        artwork: artwork || undefined, // Capa do álbum
+        duration: duration || 0, // Duração em segundos
+        elapsedTime: 0, // Posição inicial
+        color: 0x000000, // Cor de fundo da notificação (opcional)
+        isLiveStream: false, // Não é uma transmissão ao vivo
       });
     } catch (error) {
       console.error('Erro ao atualizar metadados da notificação:', error);
     }
   }
-}
 
-// Exportar uma instância única do serviço
-export const notificationService = new NotificationService();
+  async updatePlaybackState(isPlaying: boolean, position: number) {
+    try {
+      if (isPlaying) {
+        MusicControl.updatePlayback({
+          state: MusicControl.STATE_PLAYING,
+          elapsedTime: position,
+        });
+      } else {
+        MusicControl.updatePlayback({
+          state: MusicControl.STATE_PAUSED,
+          elapsedTime: position,
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar estado de reprodução:', error);
+    }
+  }
+
+  async resetNotification() {
+    try {
+      MusicControl.resetNowPlaying();
+    } catch (error) {
+      console.error('Erro ao resetar notificação:', error);
+    }
+  }
+}

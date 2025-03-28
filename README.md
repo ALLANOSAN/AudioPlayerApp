@@ -15,7 +15,6 @@ Um aplicativo de reprodução de áudio desenvolvido com React Native, que permi
 
 - React Native
 - React Navigation
-- React Native Track Player
 - React Native Fast Image
 - Async Storage
 - Last.fm API para metadados

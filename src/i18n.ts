@@ -1,15 +1,32 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-// Importando arquivos de tradução
-import en from './locales/en/common.json';
-import pt from './locales/pt-br/common.json';
-import es from './locales/es/common.json';
+let en = {};
+let ptBr = {};
+let es = {};
 
-// Definindo o tipo das traduções
+try {
+  en = require('./locales/en/common.json');
+} catch (error) {
+  console.warn('Warning: English translation file is missing. Using empty translations.');
+}
+
+try {
+  ptBr = require('./locales/pt-br/common.json');
+} catch (error) {
+  console.warn('Warning: Portuguese translation file is missing. Using English fallback.');
+}
+
+try {
+  es = require('./locales/es/common.json');
+} catch (error) {
+  console.warn('Warning: Spanish translation file is missing. Using English fallback.');
+}
+
+// Defining translation types
 type Resources = {
   en: { translation: typeof en };
-  pt: { translation: typeof pt };
+  "pt-br": { translation: typeof ptBr };
   es: { translation: typeof es };
 };
 
@@ -19,18 +36,18 @@ declare module 'i18next' {
   }
 }
 
-// Configuração do i18n com TypeScript
 i18n.use(initReactI18next).init({
   resources: {
-    en: { translation: en }, // Traduções em inglês
-    pt: { translation: pt }, // Traduções em português
-    es: { translation: es }, // Traduções em espanhol
+    en: { translation: en },
+    "pt-br": { translation: ptBr },
+    es: { translation: es },
   },
-  lng: 'pt', // Idioma padrão
-  fallbackLng: 'pt', // Fallback para o idioma padrão
+  lng: 'pt-br',
+  fallbackLng: 'en',
   interpolation: {
-    escapeValue: false, // React já faz o escape automaticamente
+    escapeValue: false,
   },
+  returnNull: false, // Return empty string instead of null when key is missing
 });
 
 export default i18n;

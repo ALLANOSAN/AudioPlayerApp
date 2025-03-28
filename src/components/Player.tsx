@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Button, Text, Image, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { Audio } from 'expo-av';
+import { NotificationService } from '../services/NotificationService';
 
 interface Song {
   path: string;
@@ -21,40 +22,88 @@ export function Player({ currentSong }: PlayerProps) {
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
+  const notificationService = useRef(NotificationService.getInstance());
 
   useEffect(() => {
     const setupPlayer = async () => {
       setIsLoading(true); // Exibe o indicador de carregamento
+
+      // Configurar callbacks para controles remotos
+      notificationService.current.setOnRemotePlay(() => {
+        play();
+      });
+      
+      notificationService.current.setOnRemotePause(() => {
+        pause();
+      });
+      
+      notificationService.current.setOnRemoteStop(() => {
+        if (sound) {
+          sound.stopAsync().then(() => setIsPlaying(false));
+        }
+      });
+      
+      notificationService.current.setOnRemoteSeek((position) => {
+        seekTo(position);
+      });
+      
+      notificationService.current.setOnRemoteNext(() => {
+        seekForward();
+      });
+      
+      notificationService.current.setOnRemotePrevious(() => {
+        seekBackward();
+      });
 
       // Libere o som anterior, se existir
       if (sound) {
         await sound.unloadAsync();
       }
 
-      // Cria um novo som
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: currentSong.path },
-        { shouldPlay: false }
-      );
+      try {
+        // Cria um novo som
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: currentSong.path },
+          { shouldPlay: false }
+        );
 
-      // Acompanhe atualizações de progresso
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded) {
-          setCurrentTime(status.positionMillis / 1000); // Atualiza o progresso
-          if (status.didJustFinish) {
-            setIsPlaying(false); // Atualiza o estado quando terminar
+        // Acompanhe atualizações de progresso
+        newSound.setOnPlaybackStatusUpdate((status) => {
+          if (status.isLoaded) {
+            setCurrentTime(status.positionMillis / 1000); // Atualiza o progresso
+            
+            // Atualiza o estado da notificação
+            notificationService.current.updatePlaybackState(
+              status.isPlaying,
+              status.positionMillis / 1000
+            );
+            
+            if (status.didJustFinish) {
+              setIsPlaying(false); // Atualiza o estado quando terminar
+            }
           }
+        });
+
+        // Obtém informações sobre a duração do áudio
+        const status = await newSound.getStatusAsync();
+        if (status.isLoaded && status.durationMillis !== undefined) {
+          setDuration(status.durationMillis / 1000); // Define a duração em segundos
+          
+          // Atualiza os metadados da notificação
+          notificationService.current.updateNotificationMetadata(
+            currentSong.name,
+            currentSong.artist,
+            currentSong.cover,
+            status.durationMillis / 1000
+          );
         }
-      });
 
-      // Obtém informações sobre a duração do áudio
-      const status = await newSound.getStatusAsync();
-      if (status.isLoaded && status.durationMillis !== undefined) {
-        setDuration(status.durationMillis / 1000); // Define a duração em segundos
+        setSound(newSound);
+      } catch (error) {
+        console.error('Erro ao carregar áudio:', error);
+      } finally {
+        setIsLoading(false); // Oculta o indicador de carregamento
       }
-
-      setSound(newSound);
-      setIsLoading(false); // Oculta o indicador de carregamento
     };
 
     setupPlayer();
@@ -64,6 +113,9 @@ export function Player({ currentSong }: PlayerProps) {
       if (sound) {
         sound.unloadAsync();
       }
+      
+      // Limpa a notificação
+      notificationService.current.resetNotification();
     };
   }, [currentSong]);
 
@@ -71,6 +123,7 @@ export function Player({ currentSong }: PlayerProps) {
     if (sound) {
       await sound.playAsync();
       setIsPlaying(true);
+      notificationService.current.updatePlaybackState(true, currentTime);
     }
   };
 
@@ -78,12 +131,14 @@ export function Player({ currentSong }: PlayerProps) {
     if (sound) {
       await sound.pauseAsync();
       setIsPlaying(false);
+      notificationService.current.updatePlaybackState(false, currentTime);
     }
   };
 
   const seekTo = async (time: number) => {
     if (sound) {
       await sound.setPositionAsync(time * 1000); // Define a posição em milissegundos
+      notificationService.current.updatePlaybackState(isPlaying, time);
     }
   };
 

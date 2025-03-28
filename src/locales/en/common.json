@@ -1,0 +1,21 @@
+{
+    "welcome": "Welcome to My App",
+    "language": "Language",
+    "settings": "Settings",
+    "search": "Search",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "version": "Version",
+    "songs": "Songs",
+    "albums": "Albums",
+    "artists": "Artists",
+    "playlists": "Playlists",
+    "player": "Player",
+    "albumDetails": "Album Details",
+    "appName": "AudioPlayer"
+}
+
