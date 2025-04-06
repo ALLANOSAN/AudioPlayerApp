@@ -4,6 +4,7 @@
     "esModuleInterop": true,
     "jsx": "react-jsx",
     "baseUrl": "./",
+    "skipLibCheck": true,
     "paths": {
       "~/*": ["src/*"]
     }

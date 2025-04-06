@@ -1,0 +1,68 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+          
+      - name: Install Dependencies
+        run: yarn install
+        
+      - name: Run Tests
+        run: yarn test --coverage
+        
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v2
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        
+      - name: Install Dependencies
+        run: yarn install
+        
+      - name: Run ESLint
+        run: yarn lint
+        
+      - name: Run TypeScript Check
+        run: yarn tsc --noEmit
+
+  build:
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        
+      - name: Setup Expo
+        uses: expo/expo-github-action@v7
+        with:
+          expo-version: 4.x
+          
+      - name: Install Dependencies
+        run: yarn install
+        
+      - name: Build Android
+        run: expo build:android
+        
+      - name: Build iOS
+        run: expo build:ios

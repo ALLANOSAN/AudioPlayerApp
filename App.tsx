@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler';
 import * as React from 'react';
 import { useEffect } from 'react';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { enableScreens } from 'react-native-screens';
@@ -61,8 +61,8 @@ const screenOptions = {
   },
 };
 
-// Componente principal de navegação
-function AppNavigator() {
+// Componente de conteúdo de navegação (sem NavigationContainer)
+function AppNavigatorContent() {
   const { theme, isDark } = useTheme();
   const { t } = useTranslation(); // Usando react-i18next para acessar traduções
 
@@ -95,7 +95,7 @@ function AppNavigator() {
   };
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <>
       <StatusBar
         backgroundColor={theme.background}
         barStyle={theme.statusBar as StatusBarStyle}
@@ -150,7 +150,7 @@ function AppNavigator() {
           component={PlaylistsScreen} 
         />
       </Stack.Navigator>
-    </NavigationContainer>
+    </>
   );
 }
 
@@ -247,7 +247,7 @@ function App() {
   return (
     <I18nextProvider i18n={i18n}>
       <ThemeProvider>
-        <AppNavigator />
+        <AppNavigatorContent />
       </ThemeProvider>
     </I18nextProvider>
   );
