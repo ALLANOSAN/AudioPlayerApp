@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler';
 import * as React from 'react';
 import { useEffect } from 'react';
-import { DefaultTheme } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { enableScreens } from 'react-native-screens';
@@ -29,7 +29,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import { RootStackParamList, TabParamList } from './src/types/navigation';
 
 // Serviços
-import { notificationService } from './src/services/NotificationService';
+import { NotificationService } from './src/services/NotificationService';
 import { downloadTranslations } from './src/services/crowdinService';
 
 // Habilitar otimizações de tela nativa
@@ -70,6 +70,8 @@ function AppNavigatorContent() {
   useEffect(() => {
     const setupPlayer = async () => {
       try {
+        // Obtenha a instância e depois chame o método setup()
+        const notificationService = NotificationService.getInstance();
         await notificationService.setup();
       } catch (error) {
         console.error('Erro ao configurar o player:', error);
@@ -96,60 +98,58 @@ function AppNavigatorContent() {
 
   return (
     <>
-      <StatusBar
-        backgroundColor={theme.background}
-        barStyle={theme.statusBar as StatusBarStyle}
-      />
-      <Stack.Navigator
-        initialRouteName="Tabs"
-        screenOptions={{
-          ...screenOptions,
-          headerStyle: {
-            backgroundColor: theme.card,
-            elevation: 0,
-            shadowOpacity: 0,
-          },
-          headerTintColor: theme.text,
-        }}
-      >
-        <Stack.Screen 
-          name="Tabs" 
-          component={TabNavigator} 
-          options={{ 
-            headerShown: false,
-            title: t('appName'), // Chama a tradução para o título do app
-          }} 
-        />
-        <Stack.Screen 
-          name="Player" 
-          component={PlayerScreen} 
-          options={{
-            title: t('player'), // Tradução para "Player"
-            cardStyleInterpolator: CardStyleInterpolators.forVerticalIOS,
-          }}
-        />
-        <Stack.Screen 
-          name="AlbumDetails" 
-          component={AlbumDetailsScreen} 
-          options={{
-            title: t('albumDetails'), // Tradução para "Detalhes do Álbum"
-          }}
-        />
-        <Stack.Screen 
-          name="ArtistDetails" 
-          options={{
-            title: t('artists'), // Tradução para "Artistas"
-          }}
-          component={ArtistsScreen} 
-        />
-        <Stack.Screen 
-          name="PlaylistDetails" 
-          options={{
-            title: t('playlists'), // Tradução para "Playlists"
-          }}
-          component={PlaylistsScreen} 
-        />
-      </Stack.Navigator>
+      <StatusBar backgroundColor={theme.background} barStyle={theme.statusBar as StatusBarStyle} />
+      <NavigationContainer theme={navigationTheme}>
+        <Stack.Navigator
+          initialRouteName="Tabs"
+          screenOptions={{
+            ...screenOptions,
+            headerStyle: {
+              backgroundColor: theme.card,
+              elevation: 0,
+              shadowOpacity: 0,
+            },
+            headerTintColor: theme.text,
+          }}>
+          <Stack.Screen
+            name="Tabs"
+            component={TabNavigator}
+            options={{
+              headerShown: false,
+              title: t('appName'), // Chama a tradução para o título do app
+            }}
+          />
+          <Stack.Screen
+            name="Player"
+            component={PlayerScreen}
+            options={{
+              title: t('player'), // Tradução para "Player"
+              cardStyleInterpolator: CardStyleInterpolators.forVerticalIOS,
+            }}
+          />
+          <Stack.Screen
+            name="AlbumDetails"
+            component={AlbumDetailsScreen}
+            options={{
+              title: t('albumDetails'), // Tradução para "Detalhes do Álbum"
+            }}
+          />
+          <Stack.Screen
+            name="ArtistDetails"
+            options={{
+              title: t('artists'), // Tradução para "Artistas"
+            }}
+            component={ArtistsScreen}
+          />
+          <Stack.Screen
+            name="PlaylistDetails"
+            options={{
+              title: t('playlists'), // Tradução para "Playlists"
+            }}
+            component={PlaylistsScreen}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
     </>
   );
 }
@@ -183,43 +183,42 @@ function TabNavigator() {
           shadowOpacity: 0,
         },
         headerTintColor: theme.text,
-      }}
-    >
-      <Tab.Screen 
-        name="Music" 
-        component={MusicScreen} 
+      }}>
+      <Tab.Screen
+        name="Music"
+        component={MusicScreen}
         options={{
           title: t('songs'),
           tabBarLabel: t('songs'), // Tradução para "Músicas"
         }}
       />
-      <Tab.Screen 
-        name="Albums" 
-        component={AlbumsScreen} 
+      <Tab.Screen
+        name="Albums"
+        component={AlbumsScreen}
         options={{
           title: t('albums'),
           tabBarLabel: t('albums'), // Tradução para "Álbuns"
         }}
       />
-      <Tab.Screen 
-        name="Artists" 
-        component={ArtistsScreen} 
+      <Tab.Screen
+        name="Artists"
+        component={ArtistsScreen}
         options={{
           title: t('artists'),
           tabBarLabel: t('artists'), // Tradução para "Artistas"
         }}
       />
-      <Tab.Screen 
-        name="Playlists" 
-        component={PlaylistsScreen} 
+      <Tab.Screen
+        name="Playlists"
+        component={PlaylistsScreen}
         options={{
           title: t('playlists'),
           tabBarLabel: t('playlists'), // Tradução para "Playlists"
         }}
       />
-      <Tab.Screen 
-        name="Settings" 
-        component={SettingsScreen} 
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
         options={{
           title: t('settings'),
           tabBarLabel: t('settings'), // Tradução para "Configurações"

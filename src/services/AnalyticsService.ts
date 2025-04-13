@@ -1,4 +1,4 @@
-import { Amplitude, Types } from '@amplitude/analytics-react-native';
+import { init, track, identify, Identify, flush } from '@amplitude/analytics-react-native';
 import { Platform } from 'react-native';
 import { Logger } from '../utils/logger';
 import { AudioPlayer } from './AudioPlayer';
@@ -18,11 +18,11 @@ export class AnalyticsService {
 
   async initialize(apiKey: string): Promise<void> {
     try {
-      await Amplitude.init(apiKey);
+      await init(apiKey);
       this.initialized = true;
       Logger.debug('Analytics initialized');
     } catch (error) {
-      Logger.error('Error initializing analytics:', error);
+      Logger.error(`Analytics initialization failed: ${error}`);
     }
   }
 
@@ -30,13 +30,13 @@ export class AnalyticsService {
     if (!this.initialized) return;
 
     try {
-      await Amplitude.track(eventName, {
+      await track(eventName, {
         ...properties,
         platform: Platform.OS,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      Logger.error('Error tracking event:', error);
+      Logger.error(`Error tracking event: ${error}`);
     }
   }
 
@@ -60,9 +60,24 @@ export class AnalyticsService {
     if (!this.initialized) return;
 
     try {
-      await Amplitude.setUserProperties(properties);
+      const identifyObj = new Identify();
+      Object.entries(properties).forEach(([key, value]) => {
+        identifyObj.set(key, value);
+      });
+      await identify(identifyObj);
     } catch (error) {
-      Logger.error('Error setting user properties:', error);
+      Logger.error(`Error setting user properties: ${error}`);
+    }
+  }
+
+  async flush(): Promise<void> {
+    if (!this.initialized) return;
+
+    try {
+      await flush();
+      Logger.debug('Analytics events flushed');
+    } catch (error) {
+      Logger.error(`Error flushing analytics events: ${error}`);
     }
   }
 }

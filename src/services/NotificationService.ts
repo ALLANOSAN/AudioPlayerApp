@@ -4,12 +4,15 @@ import { Audio } from 'expo-av';
 import { Logger } from '../utils/logger';
 import { APP_STRINGS } from '../constants/strings';
 import { PlayerConfig } from '../config/playerConfig';
+import { MediaSessionService } from './MediaSessionService';
 
 export class NotificationService {
   private static instance: NotificationService;
   private areEventsRegistered: boolean = false;
+  private mediaSessionService: MediaSessionService;
 
   private constructor() {
+    this.mediaSessionService = MediaSessionService.getInstance();
     this.setupMusicControl();
     this.monitorAppState();
   }
@@ -34,22 +37,52 @@ export class NotificationService {
 
     MusicControl.on(Command.play, () => {
       Logger.debug('Play command received');
+      this.mediaSessionService.setCallbacks({
+        onPlay: () => {
+          // Implemente a lógica de play
+          Logger.debug('Play command received from MediaSession');
+        }
+      });
     });
 
     MusicControl.on(Command.pause, () => {
       Logger.debug('Pause command received');
+      this.mediaSessionService.setCallbacks({
+        onPause: () => {
+          // Implemente a lógica de pause
+          Logger.debug('Pause command received from MediaSession');
+        }
+      });
     });
 
     MusicControl.on(Command.stop, () => {
       Logger.debug('Stop command received');
+      this.mediaSessionService.setCallbacks({
+        onStop: () => {
+          // Implemente a lógica de stop
+          Logger.debug('Stop command received from MediaSession');
+        }
+      });
     });
 
     MusicControl.on(Command.nextTrack, () => {
       Logger.debug('Next track command received');
+      this.mediaSessionService.setCallbacks({
+        onNext: () => {
+          // Implemente a lógica de próxima faixa
+          Logger.debug('Next track command received from MediaSession');
+        }
+      });
     });
 
     MusicControl.on(Command.previousTrack, () => {
       Logger.debug('Previous track command received');
+      this.mediaSessionService.setCallbacks({
+        onPrevious: () => {
+          // Implemente a lógica de faixa anterior
+          Logger.debug('Previous track command received from MediaSession');
+        }
+      });
     });
 
     this.areEventsRegistered = true;
@@ -58,6 +91,7 @@ export class NotificationService {
   public updatePlaybackControls() {
     MusicControl.enableBackgroundMode(true);
     MusicControl.handleAudioInterruptions(true);
+    this.mediaSessionService.requestAudioFocus();
   }
 
   public updatePlaybackState(isPlaying: boolean, currentTime: number, duration: number) {
@@ -66,27 +100,37 @@ export class NotificationService {
       elapsedTime: currentTime,
       duration: duration,
     });
+    
+    this.mediaSessionService.updatePlaybackState(isPlaying, currentTime, duration);
   }
 
-  public updateNotificationMetadata(
-    title: string,
-    artist: string,
-    artwork: string,
-    duration: number
-  ) {
+  public updateMetadata(songInfo: {
+    title: string;
+    artist: string;
+    artwork: string;
+    duration: number;
+  }) {
     MusicControl.setNowPlaying({
-      title,
-      artist,
-      artwork,
-      duration,
+      title: songInfo.title,
+      artist: songInfo.artist,
+      artwork: songInfo.artwork,
+      duration: songInfo.duration,
       description: '',
       color: 0xFFFFFF,
       notificationIcon: 'notification_icon',
     });
+    
+    this.mediaSessionService.updateMetadata({
+      title: songInfo.title,
+      artist: songInfo.artist,
+      artwork: songInfo.artwork,
+      duration: songInfo.duration
+    });
   }
 
-  public resetNotification() {
+  public resetNotificationControls() {
     MusicControl.resetNowPlaying();
+    this.mediaSessionService.resetSession();
   }
 
   public async setup(): Promise<void> {
@@ -95,6 +139,7 @@ export class NotificationService {
       this.registerPlaybackEvents();
       
       await Audio.setAudioModeAsync(PlayerConfig.audio);
+      await this.mediaSessionService.setup();
       
       Logger.info(APP_STRINGS.SUCCESS.NOTIFICATION_SETUP);
     } catch (error) {

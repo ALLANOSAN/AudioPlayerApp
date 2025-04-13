@@ -5,7 +5,21 @@ module.exports = {
   bracketSameLine: true,
   trailingComma: 'es5',
   
-  plugins: [require.resolve("prettier-plugin-tailwindcss")],
+  plugins: [
+    require.resolve("prettier-plugin-tailwindcss"),
+    require.resolve("@prettier/plugin-xml")
+  ],
+  
   tailwindAttributes: ["className"],
   
+  overrides: [
+    {
+      files: "*.xml",
+      options: {
+        tabWidth: 2,
+        xmlSelfClosingSpace: true,
+        xmlSortAttributesByKey: false
+      }
+    }
+  ]
 };
