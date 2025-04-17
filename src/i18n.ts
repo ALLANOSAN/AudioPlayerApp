@@ -1,53 +1,40 @@
-import i18n from 'i18next';
+import i18n, { InitOptions } from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { Tolgee, DevTools, BackendFetch } from '@tolgee/react';
+import ptbrTranslations from './locales/pt-br/pt-br.json';
+import enTranslations from './locales/en/en.json';
+import esTranslations from './locales/es/es.json';
 
-let en = {};
-let ptBr = {};
-let es = {};
+export const tolgee = Tolgee()
+  .use(DevTools())
+  .use(BackendFetch())
+  .init({
+    apiUrl: 'https://app.tolgee.io',
+    apiKey: 'SUA_CHAVE_TOLGEE',
+    defaultLanguage: 'pt-br',
+    availableLanguages: ['pt-BR', 'en', 'es'],
+    fallbackLanguage: 'en',
+  });
 
-try {
-  en = require('./locales/en/common.json');
-} catch (error) {
-  console.warn('Warning: English translation file is missing. Using empty translations.');
-}
-
-try {
-  ptBr = require('./locales/pt-br/common.json');
-} catch (error) {
-  console.warn('Warning: Portuguese translation file is missing. Using English fallback.');
-}
-
-try {
-  es = require('./locales/es/common.json');
-} catch (error) {
-  console.warn('Warning: Spanish translation file is missing. Using English fallback.');
-}
-
-// Defining translation types
-type Resources = {
-  en: { translation: typeof en };
-  "pt-br": { translation: typeof ptBr };
-  es: { translation: typeof es };
-};
-
-declare module 'i18next' {
-  interface CustomTypeOptions {
-    resources: Resources;
-  }
-}
-
-i18n.use(initReactI18next).init({
-  resources: {
-    en: { translation: en },
-    "pt-br": { translation: ptBr },
-    es: { translation: es },
-  },
-  lng: 'pt-br',
+// Configuração específica para React Native
+const initOptions: InitOptions = {
+  lng: 'pt-BR',
   fallbackLng: 'en',
   interpolation: {
     escapeValue: false,
   },
-  returnNull: false, // Return empty string instead of null when key is missing
-});
+  resources: {
+    ptbr: { translation: ptbrTranslations },
+    en: { translation: enTranslations },
+    es: { translation: esTranslations }
+  }
+};
+
+// Força compatibilidade com v3 para React Native
+(initOptions as any).compatibilityJSON = 'v3';
+
+i18n
+  .use(initReactI18next)
+  .init(initOptions);
 
 export default i18n;

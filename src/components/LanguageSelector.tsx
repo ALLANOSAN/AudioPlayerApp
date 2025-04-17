@@ -1,59 +1,66 @@
-import React, { useState } from 'react';
-import { View, Text, Button, Modal, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
-import i18n from '../i18n'; // Certifique-se de ajustar o caminho
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 
-type LanguageCode = 'pt' | 'en' | 'es'; // Define os idiomas suportados
-
-// Define a interface para as propriedades do componente
-interface LanguageSelectorProps {
-  style?: ViewStyle; // Adiciona suporte para a propriedade 'style'
-}
-
-const availableLanguages = [
+const languages = [
   { code: 'pt', name: 'Português' },
   { code: 'en', name: 'English' },
-  { code: 'es', name: 'Español' },
+  { code: 'es', name: 'Español' }
 ];
 
-export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ style }) => {
-  const [modalVisible, setModalVisible] = useState(false);
+const LanguageSelector = () => {
+  const { i18n } = useTranslation();
+  const currentLanguage = i18n.language;
 
-  const changeLanguage = (langCode: LanguageCode) => {
-    i18n.changeLanguage(langCode); // Troca o idioma
-    setModalVisible(false);
+  const changeLanguage = (lng: string) => {
+    i18n.changeLanguage(lng);
   };
 
   return (
-    <View style={style}> {/* Aplica o estilo recebido na View externa */}
-      <Button title="Change Language" onPress={() => setModalVisible(true)} />
-      <Modal visible={modalVisible} transparent>
-        <View style={styles.modal}>
-          {availableLanguages.map((lang) => (
-            <TouchableOpacity
-              key={lang.code}
-              onPress={() => changeLanguage(lang.code as LanguageCode)}
-              style={styles.button}
-            >
-              <Text>{lang.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Modal>
+    <View style={styles.container}>
+      {languages.map((lang) => (
+        <TouchableOpacity
+          key={lang.code}
+          onPress={() => changeLanguage(lang.code)}
+          style={[
+            styles.button,
+            currentLanguage === lang.code && styles.selectedButton
+          ]}
+        >
+          <Text style={[
+            styles.text,
+            currentLanguage === lang.code && styles.selectedText
+          ]}>
+            {lang.name}
+          </Text>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  modal: {
-    flex: 1,
+  container: {
+    flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 10
   },
   button: {
-    backgroundColor: '#fff',
-    padding: 10,
-    margin: 5,
-    borderRadius: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginHorizontal: 5,
+    borderRadius: 4,
+    backgroundColor: '#f0f0f0'
   },
+  selectedButton: {
+    backgroundColor: '#6200ee'
+  },
+  text: {
+    color: '#333'
+  },
+  selectedText: {
+    color: 'white'
+  }
 });
+
+export default LanguageSelector;
