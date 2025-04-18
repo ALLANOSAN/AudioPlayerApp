@@ -1,19 +1,35 @@
-import React from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useEffect, useState } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTolgee } from '@tolgee/react';
 
 const languages = [
-  { code: 'pt', name: 'Português' },
-  { code: 'en', name: 'English' },
-  { code: 'es', name: 'Español' }
+  { code: 'pt', name: 'Português', flag: '🇧🇷' },
+  { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' }
 ];
 
 const LanguageSelector = () => {
-  const { i18n } = useTranslation();
-  const currentLanguage = i18n.language;
+  const tolgee = useTolgee();
+  const [currentLanguage, setCurrentLanguage] = useState(tolgee.getLanguage());
 
-  const changeLanguage = (lng: string) => {
-    i18n.changeLanguage(lng);
+  // Carregar o idioma salvo no AsyncStorage
+  useEffect(() => {
+    const loadLanguage = async () => {
+      const savedLanguage = await AsyncStorage.getItem('language');
+      if (savedLanguage && savedLanguage !== currentLanguage) {
+        await tolgee.changeLanguage(savedLanguage);
+        setCurrentLanguage(savedLanguage);
+      }
+    };
+    loadLanguage();
+  }, [currentLanguage, tolgee]);
+
+  // Função para mudar o idioma
+  const onChangeLanguage = async (lng: string) => {
+    await tolgee.changeLanguage(lng);
+    setCurrentLanguage(lng);
+    await AsyncStorage.setItem('language', lng);
   };
 
   return (
@@ -21,7 +37,7 @@ const LanguageSelector = () => {
       {languages.map((lang) => (
         <TouchableOpacity
           key={lang.code}
-          onPress={() => changeLanguage(lang.code)}
+          onPress={() => onChangeLanguage(lang.code)}
           style={[
             styles.button,
             currentLanguage === lang.code && styles.selectedButton
@@ -31,7 +47,7 @@ const LanguageSelector = () => {
             styles.text,
             currentLanguage === lang.code && styles.selectedText
           ]}>
-            {lang.name}
+            {lang.flag} {lang.name}
           </Text>
         </TouchableOpacity>
       ))}
