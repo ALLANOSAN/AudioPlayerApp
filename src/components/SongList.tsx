@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { Song } from '../types/song';
+import { Song } from '../types/music';
 
 interface SongListProps {
   songs: Song[];
@@ -26,7 +26,7 @@ export function SongList({
       onPress={() => onSelectSong(item)}
       activeOpacity={0.7}
       accessible={true}
-      accessibilityLabel={`Música ${item.name} por ${item.artist}`}
+      accessibilityLabel={`Música ${item.title} por ${item.artist}`}
       accessibilityHint="Toque para reproduzir esta música"
       accessibilityRole="button"
     >
@@ -37,16 +37,16 @@ export function SongList({
       )}
       
       {showCover && (
-        item.cover ? (
+        item.artwork ? (
           <Image
-            source={{ uri: item.cover }}
+            source={{ uri: item.artwork }}
             style={styles.songCover}
             resizeMode="cover" // Garante que a imagem se ajuste ao espaço
           />
         ) : (
           <View style={[styles.songCover, styles.defaultCover]}>
             <Text style={styles.defaultCoverText}>
-              {item.name.charAt(0).toUpperCase()}
+              {item.title.charAt(0).toUpperCase()}
             </Text>
           </View>
         )
@@ -54,7 +54,7 @@ export function SongList({
       
       <View style={styles.songInfo}>
         <Text style={styles.songTitle} numberOfLines={1} ellipsizeMode="tail">
-          {item.name}
+          {item.title}
         </Text>
         {showArtist && (
           <Text style={styles.songArtist} numberOfLines={1} ellipsizeMode="tail">
@@ -68,7 +68,7 @@ export function SongList({
   return (
     <FlatList
       data={songs}
-      keyExtractor={(item) => item.path}
+      keyExtractor={(item) => item.url}
       renderItem={renderSongItem}
       style={[styles.songsList, style]}
       showsVerticalScrollIndicator={false}

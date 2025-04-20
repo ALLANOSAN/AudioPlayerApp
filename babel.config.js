@@ -9,7 +9,7 @@ module.exports = function(api) {
       },
       development: {
         plugins: ['nativewind/babel']
-        ['module:react-native-dotenv', { moduleName: '@env', path: '.env' }]
+        ['module:react-native-config', { moduleName: '@env', path: '.env' }]
       }
     }
   };

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Ima
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
-import { Song } from '../types/song';
+import { Song } from '../types/music';
 import { useNavigation } from '@react-navigation/native';
 import { SongList } from '../components/SongList';
 import { Audio } from 'expo-av';

@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { PlaylistState } from './types';
-import { Song } from '../types/song';
+import { Song } from '../types/music';
 
 const initialState: PlaylistState = {
   songs: [],

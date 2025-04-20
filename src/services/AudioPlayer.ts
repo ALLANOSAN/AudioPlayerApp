@@ -2,7 +2,7 @@ import { Audio } from 'expo-av';
 import { NotificationService } from './NotificationService';
 import { store as defaultStore } from '../store';
 import { setCurrentSong, setIsPlaying } from '../store/playerSlice';
-import { Song } from '../types/song';
+import { Song } from '../types/music';
 
 export class AudioPlayer {
   private static instance: AudioPlayer;

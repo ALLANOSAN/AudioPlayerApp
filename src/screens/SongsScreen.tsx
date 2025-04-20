@@ -1,26 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, SafeAreaView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  SafeAreaView,
+} from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Song } from '../types/song';
+import { Song } from '../types/music';
 import { RootStackParamList } from '../types/navigation';
 import { SongList } from '../components/SongList';
 import { Audio } from 'expo-av';
+import { lastFmService } from '../services/lastFmService';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'Player'>;
-
-let currentSongIndex = 0; // Índice da música atual
-const songsGlobal: Song[] = []; // Lista de músicas para controle global
-let sound: Audio.Sound | null = null; // Controle de som global
 
 const SongsScreen = () => {
   const [songs, setSongs] = useState<Song[]>([]);
   const [filteredSongs, setFilteredSongs] = useState<Song[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [currentSongIndex, setCurrentSongIndex] = useState(0);
+  const soundRef = useRef<Audio.Sound | null>(null);
+
   const navigation = useNavigation<NavigationProp>();
+
+  useEffect(() => {
+    return () => {
+      // Cleanup function for audio
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -29,10 +45,9 @@ const SongsScreen = () => {
     }
 
     const query = searchQuery.toLowerCase();
-    const filtered = songs.filter(song =>
-      song.name.toLowerCase().includes(query) ||
-      song.artist.toLowerCase().includes(query) ||
-      song.album.toLowerCase().includes(query)
+    const filtered = songs.filter(
+      (song) =>
+        song.title.toLowerCase().includes(query) || song.artist.toLowerCase().includes(query)
     );
 
     setFilteredSongs(filtered);
@@ -41,49 +56,51 @@ const SongsScreen = () => {
   const addSongsFromFolder = async () => {
     try {
       setIsLoading(true);
-      const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*', copyToCacheDirectory: true });
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'audio/*',
+        copyToCacheDirectory: true,
+      });
 
       if (result.canceled) {
         console.log('Seleção de arquivo cancelada.');
         return;
       }
 
-      const file = result.assets[0];
-
-      if (!file) {
-        console.error('Nenhum arquivo foi selecionado.');
+      // Verifica se há pelo menos um arquivo selecionado
+      if (!result.assets || result.assets.length === 0) {
+        console.error('Falha ao selecionar arquivo.');
         return;
       }
 
-      const filePath = file.uri;
-      const fileName = file.name.replace(/\.[^/.]+$/, "");
+      const asset = result.assets[0];
+      const filePath = asset.uri;
+      const fileName = asset.name ? asset.name.replace(/\.[^/.]+$/, '') : 'Unknown';
 
       let title = fileName;
       let artist = 'Artista Desconhecido';
-      let album = 'Álbum Desconhecido';
       let cover = '';
 
       try {
-        const songInfo = await fetchSongInfo(fileName);
+        const songInfo = await lastFmService.fetchSongInfo(fileName);
         title = songInfo.title || fileName;
         artist = songInfo.artist || 'Artista Desconhecido';
-        album = songInfo.album || 'Álbum Desconhecido';
         cover = songInfo.cover || '';
       } catch (metadataError) {
         console.error('Erro ao obter metadados:', metadataError);
       }
 
-      const audioFiles: Song[] = [{
-        path: filePath,
-        name: title,
-        artist: artist,
-        cover: cover,
-        album: album,
-      }];
+      const audioFiles: Song[] = [
+        {
+          id: Date.now().toString(),
+          url: filePath,
+          title: title,
+          artist: artist,
+          artwork: cover,
+          duration: 0,
+        },
+      ];
 
-      songsGlobal.push(...audioFiles); // Adiciona globalmente
-      setSongs(prevSongs => [...prevSongs, ...audioFiles]);
-      setFilteredSongs(prevSongs => [...prevSongs, ...audioFiles]);
+      setSongs((prevSongs) => [...prevSongs, ...audioFiles]);
     } catch (err) {
       console.error('Erro ao selecionar a pasta:', err);
     } finally {
@@ -91,37 +108,56 @@ const SongsScreen = () => {
     }
   };
 
-  const fetchSongInfo = async (songName: string): Promise<{ title: string, artist: string, album: string, cover: string }> => {
-    const apiKey = 'c0bc9642cd67227a10ce0a129981513b';
-    try {
-      const trackResponse = await axios.get(`http://ws.audioscrobbler.com/2.0/?method=track.search&track=${songName}&api_key=${apiKey}&format=json`);
-      const tracks = trackResponse.data.results?.trackmatches?.track || [];
+  const clearSearch = () => {
+    setSearchQuery('');
+  };
 
-      if (tracks.length === 0) {
-        return { title: songName, artist: 'Artista Desconhecido', album: 'Álbum Desconhecido', cover: '' };
+  const playCurrentSong = async (song: Song) => {
+    try {
+      // Encontra o índice da música selecionada
+      const index = songs.findIndex((s) => s.id === song.id);
+      if (index !== -1) {
+        setCurrentSongIndex(index);
       }
 
-      const track = tracks[0];
-      const artist = track.artist;
+      // Unload música anterior se existir
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+      }
 
-      const albumResponse = await axios.get(`http://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&api_key=${apiKey}&artist=${artist}&format=json`);
-      const albums = albumResponse.data.topalbums?.album || [];
-      const cover = albums.length > 0 ? albums[0].image[3]['#text'] : '';
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: song.url },
+        { shouldPlay: true }
+      );
 
-      return {
-        title: track.name || songName,
-        artist: artist || 'Artista Desconhecido',
-        album: albums.length > 0 ? albums[0].name : 'Álbum Desconhecido',
-        cover: cover
-      };
+      soundRef.current = newSound;
+
+      newSound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          console.log('Reprodução finalizada.');
+          // Aqui você pode implementar a lógica para tocar a próxima música
+        }
+      });
+
+      // Navega para a tela do player
+      navigation.navigate('Player', { song });
     } catch (error) {
-      console.error('Erro ao buscar informações da música:', error);
-      return { title: songName, artist: 'Artista Desconhecido', album: 'Álbum Desconhecido', cover: '' };
+      console.error('Erro ao reproduzir música:', error);
     }
   };
 
-  const clearSearch = () => {
-    setSearchQuery('');
+  const getNextTrack = (): Song | null => {
+    if (songs.length === 0) return null;
+    const nextIndex = (currentSongIndex + 1) % songs.length;
+    setCurrentSongIndex(nextIndex);
+    return songs[nextIndex];
+  };
+
+  const getPreviousTrack = (): Song | null => {
+    if (songs.length === 0) return null;
+    const prevIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+    setCurrentSongIndex(prevIndex);
+    return songs[prevIndex];
   };
 
   return (
@@ -134,20 +170,13 @@ const SongsScreen = () => {
           onChangeText={setSearchQuery}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={clearSearch}
-          >
+          <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
             <Text style={styles.clearButtonText}>✕</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={addSongsFromFolder}
-        disabled={isLoading}
-      >
+      <TouchableOpacity style={styles.addButton} onPress={addSongsFromFolder} disabled={isLoading}>
         <Text style={styles.addButtonText}>
           {isLoading ? 'Carregando...' : 'Adicionar Músicas'}
         </Text>
@@ -163,39 +192,6 @@ const SongsScreen = () => {
       )}
     </SafeAreaView>
   );
-};
-
-export const getCurrentTrack = (direction?: 'next' | 'previous'): Song | null => {
-  if (direction === 'next') {
-    currentSongIndex = (currentSongIndex + 1) % songsGlobal.length;
-  } else if (direction === 'previous') {
-    currentSongIndex =
-      (currentSongIndex - 1 + songsGlobal.length) % songsGlobal.length;
-  }
-  return songsGlobal[currentSongIndex] || null;
-};
-
-export const playCurrentSong = async (song: Song) => {
-  try {
-    if (sound) {
-      await sound.unloadAsync();
-    }
-
-    const { sound: newSound } = await Audio.Sound.createAsync(
-      { uri: song.path },
-      { shouldPlay: true }
-    );
-
-    sound = newSound;
-
-    newSound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
-        console.log('Reprodução finalizada.');
-      }
-    });
-  } catch (error) {
-    console.error('Erro ao reproduzir música:', error);
-  }
 };
 
 const styles = StyleSheet.create({

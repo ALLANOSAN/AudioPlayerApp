@@ -1,8 +1,5 @@
 // Definição dos tipos para navegação no aplicativo
-import { Song } from './song';
-import { Artist } from './artist';
-import { Playlist } from './playlist';
-import { Album } from './album';
+import { Song, Artist, Playlist, Album } from './music';
 
 // Definição das rotas e parâmetros para o Stack Navigator
 export type RootStackParamList = {

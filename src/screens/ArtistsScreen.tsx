@@ -1,12 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Button, FlatList, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
-import { Song } from '../types/song';
+import { Song } from '../types/music';
 import { Audio } from 'expo-av';
+import SongsTab from '../components/SongsTab';
+import AlbumsTab from '../components/AlbumsTab';
+
+interface Album {
+  name: string;
+  songs: Song[];
+}
+
+interface Artist {
+  name: string;
+  albums: Album[];
+}
 
 const ArtistsScreen = () => {
-  const [artists, setArtists] = useState<any[]>([]);
-  const [selectedArtist, setSelectedArtist] = useState<any | null>(null);
+  const [artists, setArtists] = useState<Artist[]>([]);
+  const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedAlbumSongs, setSelectedAlbumSongs] = useState<Song[]>([]);
   const [tabIndex, setTabIndex] = useState(0);
@@ -17,9 +29,8 @@ const ArtistsScreen = () => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
 
   useEffect(() => {
-    // Simulando o carregamento de uma fila inicial
     const loadQueue = async () => {
-      const queue: Song[] = []; // Suponha que temos uma fila carregada de outro lugar
+      const queue: Song[] = [];
       organizeByArtist(queue);
     };
 
@@ -27,65 +38,64 @@ const ArtistsScreen = () => {
 
     return () => {
       if (sound) {
-        sound.unloadAsync(); // Libera o som ao desmontar
+        sound.unloadAsync();
       }
     };
   }, [sound]);
 
   const organizeByArtist = (songs: Song[]) => {
-    const artistMap: { [key: string]: any } = {};
+    const artistMap: { [key: string]: Artist } = {};
 
     songs.forEach((song) => {
       const artist = song.artist || 'Desconhecido';
-      const album = song.album || 'Sem Álbum';
+      const albumName = song.title || 'Sem Álbum';
 
       if (!artistMap[artist]) {
-        artistMap[artist] = { name: artist, albums: {} };
+        artistMap[artist] = { name: artist, albums: [] };
       }
 
-      if (!artistMap[artist].albums[album]) {
-        artistMap[artist].albums[album] = [];
+      let album = artistMap[artist].albums.find(a => a.name === albumName);
+      if (!album) {
+        album = { name: albumName, songs: [] };
+        artistMap[artist].albums.push(album);
       }
 
-      artistMap[artist].albums[album].push(song);
+      album.songs.push(song);
     });
 
-    const artistList = Object.keys(artistMap).map((artist) => ({
-      name: artist,
-      albums: Object.keys(artistMap[artist].albums).map((album) => ({
-        name: album,
-        songs: artistMap[artist].albums[album],
-      })),
-    }));
-
+    const artistList = Object.values(artistMap);
     setArtists(artistList);
   };
 
-  const navigateToArtistDetails = (artist: any) => {
+  const navigateToArtistDetails = (artist: Artist) => {
     setSelectedArtist(artist);
     setModalVisible(true);
   };
 
-  const playAllSongs = async (songs: Song[], startIndex: number = 0) => {
+  const playAllSongs = (index: number) => {
+    if (!selectedArtist) return;
+    const songs = selectedArtist.albums.flatMap(album => album.songs);
+    playSongs(songs, index);
+  };
+
+  const playSongs = async (songs: Song[], startIndex: number = 0) => {
     try {
       if (sound) {
-        await sound.unloadAsync(); // Libera o som atual
+        await sound.unloadAsync();
       }
 
       const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: songs[startIndex].path },
+        { uri: songs[startIndex].url },
         { shouldPlay: true }
       );
 
       setSound(newSound);
 
-      // Adiciona evento de atualização de status
       newSound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
-          // Toca a próxima música da lista automaticamente
           const nextIndex = startIndex + 1;
           if (nextIndex < songs.length) {
-            playAllSongs(songs, nextIndex);
+            playSongs(songs, nextIndex);
           } else {
             console.log('Fim da reprodução da lista.');
           }
@@ -96,37 +106,14 @@ const ArtistsScreen = () => {
     }
   };
 
-  const showAlbumSongs = (albumSongs: Song[]) => {
-    setSelectedAlbumSongs(albumSongs);
+  const showAlbumSongs = (songs: Song[]) => {
+    setSelectedAlbumSongs(songs);
   };
 
-  const SongsTab = () => (
-    <FlatList
-      data={selectedArtist?.albums.flatMap((album: any) => album.songs) || []}
-      keyExtractor={(item) => item.path}
-      renderItem={({ item, index }) => (
-        <TouchableOpacity
-          onPress={() =>
-            playAllSongs(selectedArtist?.albums.flatMap((album: any) => album.songs) || [], index)
-          }
-        >
-          <Text style={styles.songName}>{item.name}</Text>
-        </TouchableOpacity>
-      )}
-    />
-  );
-
-  const AlbumsTab = () => (
-    <FlatList
-      data={selectedArtist?.albums || []}
-      keyExtractor={(item) => item.name}
-      renderItem={({ item }) => (
-        <TouchableOpacity onPress={() => showAlbumSongs(item.songs)}>
-          <Text style={styles.albumName}>{item.name}</Text>
-        </TouchableOpacity>
-      )}
-    />
-  );
+  const renderScene = SceneMap({
+    songs: () => <SongsTab songs={selectedArtist?.albums.flatMap(album => album.songs) || []} onPlaySong={playAllSongs} />,
+    albums: () => <AlbumsTab albums={selectedArtist?.albums || []} onSelectAlbumSongs={showAlbumSongs} />,
+  });
 
   return (
     <View style={styles.container}>
@@ -145,10 +132,7 @@ const ArtistsScreen = () => {
           <Text style={styles.modalTitle}>{selectedArtist?.name}</Text>
           <TabView
             navigationState={{ index: tabIndex, routes }}
-            renderScene={SceneMap({
-              songs: SongsTab,
-              albums: AlbumsTab,
-            })}
+            renderScene={renderScene}
             onIndexChange={setTabIndex}
             renderTabBar={(props) => (
               <TabBar {...props} style={styles.tabBar} indicatorStyle={styles.tabIndicator} />
@@ -163,10 +147,10 @@ const ArtistsScreen = () => {
           <Text style={styles.modalTitle}>Músicas do Álbum</Text>
           <FlatList
             data={selectedAlbumSongs}
-            keyExtractor={(item) => item.path}
+            keyExtractor={(item) => item.id}
             renderItem={({ item, index }) => (
-              <TouchableOpacity onPress={() => playAllSongs(selectedAlbumSongs, index)}>
-                <Text style={styles.songName}>{item.name}</Text>
+              <TouchableOpacity onPress={() => playSongs(selectedAlbumSongs, index)}>
+                <Text style={styles.songName}>{item.title}</Text>
               </TouchableOpacity>
             )}
           />
@@ -201,10 +185,6 @@ const styles = StyleSheet.create({
   },
   tabIndicator: {
     backgroundColor: 'white',
-  },
-  albumName: {
-    fontSize: 16,
-    margin: 10,
   },
   songName: {
     fontSize: 16,

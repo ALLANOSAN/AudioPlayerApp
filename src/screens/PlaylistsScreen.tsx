@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, Button, FlatList, TextInput, StyleSheet, Modal, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Song } from '../types/song';
-import { Playlist, PlaylistState } from '../types/playlist';
+import { Song } from '../types/music';
+import { Playlist, PlaylistState } from '../types/music';
 import { RootStackParamList } from '../types/navigation';
 
 // Tipagem de navegação

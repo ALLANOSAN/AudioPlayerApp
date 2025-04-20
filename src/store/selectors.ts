@@ -1,6 +1,6 @@
 import { createSelector } from 'reselect';
 import { RootState } from './types';
-import { Song } from '../types/song';
+import { Song } from '../types/music';
 
 const getPlayerState = (state: RootState) => state.player;
 const getPlaylistState = (state: RootState) => state.playlist;

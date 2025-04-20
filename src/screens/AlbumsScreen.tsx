@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Button, FlatList, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
-import { Song } from '../types/song';
+import { Song } from '../types/music';
 import { Audio } from 'expo-av';
 
 const ArtistsScreen = () => {

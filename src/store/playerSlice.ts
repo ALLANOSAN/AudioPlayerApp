@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { PlayerState } from './types';
-import { Song } from '../types/song';
+import { Song } from '../types/music';
 
 const initialState: PlayerState = {
   currentSong: null,
