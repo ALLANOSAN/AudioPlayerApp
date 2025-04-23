@@ -1,10 +1,8 @@
 import React from 'react';
-import { View, Text, FlatList, StyleSheet, Pressable } from 'react-native';
-
-interface Album {
-  id: string;
-  name: string;
-}
+import { View, Text, FlatList, StyleSheet, Pressable, Image } from 'react-native';
+import { useTranslate } from '@tolgee/react';
+import { useTheme } from '../contexts/ThemeContext';
+import { Album } from '../types/music';
 
 interface AlbumListProps {
   albums: Album[];
@@ -12,62 +10,127 @@ interface AlbumListProps {
 }
 
 export function AlbumList({ albums, onSelectAlbum }: AlbumListProps) {
+  const { t } = useTranslate();
+  const { theme } = useTheme();
+
+  if (albums.length === 0) {
+    return (
+      <View style={[styles.emptyContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.emptyText, { color: theme.secondaryText }]}>
+          {t('albuns.nenhumAlbum')}
+        </Text>
+      </View>
+    );
+  }
+
+  const renderAlbumItem = ({ item }: { item: Album }) => (
+    <Pressable
+      style={({ pressed }) => [
+        styles.albumItem,
+        // Use transparent/card instead of pressed (que não existe no seu theme)
+        { backgroundColor: pressed ? `${theme.card}80` : theme.card }
+      ]}
+      onPress={() => onSelectAlbum(item)}
+      // Remova android_ripple ou use uma cor padrão
+      android_ripple={{ color: 'rgba(0,0,0,0.1)' }}
+      accessibilityLabel={t('albuns.acessibilidadeItem', { 
+        titulo: item.name, // mudando de name para title
+        artista: item.artist 
+      })}
+      accessibilityRole="button"
+    >
+      <View style={styles.albumImageContainer}>
+        {item.artwork ? ( // mudando de cover para artwork
+          <Image source={{ uri: item.artwork }} style={styles.albumImage} />
+        ) : (
+          <View style={[styles.albumPlaceholder, { backgroundColor: theme.placeholder }]}>
+            <Text style={styles.albumPlaceholderText}>
+              {item.name.charAt(0)}
+            </Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.albumInfo}>
+        <Text style={[styles.albumName, { color: theme.text }]} numberOfLines={1} ellipsizeMode="tail">
+          {item.name} {/* mudando de name para title */}
+        </Text>
+        <Text style={[styles.albumArtist, { color: theme.secondaryText }]} numberOfLines={1} ellipsizeMode="tail">
+          {item.artist}
+        </Text>
+        <Text style={[styles.songCount, { color: theme.tertiaryText }]}>
+          {t('albuns.musicas', { count: item.songs.length })}
+        </Text>
+      </View>
+    </Pressable>
+  );
+
   return (
-    <View style={styles.container}>
-      {albums.length === 0 ? (
-        // Exibe uma mensagem quando não houver álbuns
-        <Text style={styles.emptyText}>Nenhum álbum disponível.</Text>
-      ) : (
-        <FlatList
-          data={albums}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            // Usando Pressable para feedback visual no clique
-            <Pressable
-              onPress={() => onSelectAlbum(item)}
-              style={({ pressed }) => [
-                styles.albumItem,
-                pressed && { backgroundColor: '#e6e6e6' }, // Feedback visual ao pressionar
-              ]}
-              accessibilityLabel={`Selecionar o álbum ${item.name}`}
-            >
-              <Text style={styles.albumText}>{item.name}</Text>
-            </Pressable>
-          )}
-        />
-      )}
-    </View>
+    <FlatList
+      data={albums}
+      keyExtractor={(item) => item.id}
+      renderItem={renderAlbumItem}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.list}
+      accessibilityLabel={t('albuns.listaAcessibilidade')}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
+
+  list: {
+    padding: 8,
   },
   albumItem: {
-    padding: 15,
-    marginVertical: 5,
-    marginHorizontal: 10,
+    flexDirection: 'row',
+    padding: 12,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    backgroundColor: '#f9f9f9',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 8,
   },
-  albumText: {
+  albumImageContainer: {
+    marginRight: 16,
+  },
+  albumImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 4,
+  },
+  albumPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  albumPlaceholderText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  albumInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  albumName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    marginBottom: 4,
+  },
+  albumArtist: {
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  songCount: {
+    fontSize: 12,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   emptyText: {
-    textAlign: 'center',
     fontSize: 16,
-    color: '#999',
-    marginTop: 20,
+    textAlign: 'center',
   },
 });

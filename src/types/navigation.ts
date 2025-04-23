@@ -5,7 +5,7 @@ import { Song, Artist, Playlist, Album } from './music';
 export type RootStackParamList = {
   Tabs: undefined; // Rota para o TabNavigator, sem parâmetros
   Player: {
-    song: Song; // Rota para o Player, com parâmetro song
+    song: Song; playlist: Song[] // Rota para o Player, com parâmetro song
   };
   ArtistDetails: {
     artist: Artist; // Rota para detalhes do artista

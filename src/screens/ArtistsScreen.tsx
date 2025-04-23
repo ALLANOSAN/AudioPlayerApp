@@ -1,162 +1,160 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, FlatList, StyleSheet, Modal, TouchableOpacity } from 'react-native';
-import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
-import { Song } from '../types/music';
-import { Audio } from 'expo-av';
-import SongsTab from '../components/SongsTab';
-import AlbumsTab from '../components/AlbumsTab';
-
-interface Album {
-  name: string;
-  songs: Song[];
-}
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, Button } from 'react-native';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import { useTranslate } from '@tolgee/react';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Artist {
+  id: string;
   name: string;
   albums: Album[];
 }
 
+interface Album {
+  id: string;
+  name: string;
+  songs: Song[];
+}
+
+interface Song {
+  id: string;
+  title: string;
+  artist: string;
+  url: string;
+}
+
+const Tab = createMaterialTopTabNavigator();
+
 const ArtistsScreen = () => {
+  const { t } = useTranslate();
+  const { theme } = useTheme();
   const [artists, setArtists] = useState<Artist[]>([]);
   const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [selectedAlbumSongs, setSelectedAlbumSongs] = useState<Song[]>([]);
-  const [tabIndex, setTabIndex] = useState(0);
-  const [routes] = useState([
-    { key: 'songs', title: 'Músicas' },
-    { key: 'albums', title: 'Álbuns' },
-  ]);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
 
+  // Simular carregamento de artistas (substitua por sua lógica real)
   useEffect(() => {
-    const loadQueue = async () => {
-      const queue: Song[] = [];
-      organizeByArtist(queue);
-    };
-
-    loadQueue();
-
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, [sound]);
-
-  const organizeByArtist = (songs: Song[]) => {
-    const artistMap: { [key: string]: Artist } = {};
-
-    songs.forEach((song) => {
-      const artist = song.artist || 'Desconhecido';
-      const albumName = song.title || 'Sem Álbum';
-
-      if (!artistMap[artist]) {
-        artistMap[artist] = { name: artist, albums: [] };
-      }
-
-      let album = artistMap[artist].albums.find(a => a.name === albumName);
-      if (!album) {
-        album = { name: albumName, songs: [] };
-        artistMap[artist].albums.push(album);
-      }
-
-      album.songs.push(song);
-    });
-
-    const artistList = Object.values(artistMap);
-    setArtists(artistList);
-  };
-
-  const navigateToArtistDetails = (artist: Artist) => {
-    setSelectedArtist(artist);
-    setModalVisible(true);
-  };
-
-  const playAllSongs = (index: number) => {
-    if (!selectedArtist) return;
-    const songs = selectedArtist.albums.flatMap(album => album.songs);
-    playSongs(songs, index);
-  };
-
-  const playSongs = async (songs: Song[], startIndex: number = 0) => {
-    try {
-      if (sound) {
-        await sound.unloadAsync();
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: songs[startIndex].url },
-        { shouldPlay: true }
-      );
-
-      setSound(newSound);
-
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          const nextIndex = startIndex + 1;
-          if (nextIndex < songs.length) {
-            playSongs(songs, nextIndex);
-          } else {
-            console.log('Fim da reprodução da lista.');
+    // Aqui você carregaria seus artistas de uma fonte de dados real
+    // Este é apenas um exemplo simples
+    const mockArtists: Artist[] = [
+      {
+        id: '1',
+        name: 'Artista 1',
+        albums: [
+          {
+            id: '101',
+            name: 'Álbum 1',
+            songs: [
+              { id: '1001', title: 'Música 1', artist: 'Artista 1', url: '' },
+              { id: '1002', title: 'Música 2', artist: 'Artista 1', url: '' },
+            ]
           }
-        }
-      });
-    } catch (error) {
-      console.error('Erro ao reproduzir músicas:', error);
+        ]
+      },
+      {
+        id: '2',
+        name: 'Artista 2',
+        albums: [
+          {
+            id: '201',
+            name: 'Álbum 2',
+            songs: [
+              { id: '2001', title: 'Música A', artist: 'Artista 2', url: '' },
+              { id: '2002', title: 'Música B', artist: 'Artista 2', url: '' },
+            ]
+          }
+        ]
+      }
+    ];
+    
+    setArtists(mockArtists);
+  }, []);
+
+  const handleArtistSelect = (artist: Artist) => {
+    setSelectedArtist(artist);
+  };
+
+  const handleAlbumSelect = (album: Album) => {
+    setSelectedAlbum(album);
+    setSelectedAlbumSongs(album.songs);
+  };
+
+  const renderArtistItem = ({ item }: { item: Artist }) => (
+    <TouchableOpacity onPress={() => handleArtistSelect(item)}>
+      <Text style={[styles.artistName, { color: theme.text }]}>{item.name}</Text>
+    </TouchableOpacity>
+  );
+
+  const renderAlbumItem = ({ item }: { item: Album }) => (
+    <TouchableOpacity onPress={() => handleAlbumSelect(item)}>
+      <Text style={[styles.artistName, { color: theme.text }]}>{item.name}</Text>
+    </TouchableOpacity>
+  );
+
+  const AlbumsTab = () => {
+    if (!selectedArtist) {
+      return (
+        <View style={[styles.emptyContainer, { backgroundColor: theme.background }]}>
+          <Text style={[styles.emptyText, { color: theme.secondaryText }]}>
+            {t('artistas.selecioneArtista')}
+          </Text>
+        </View>
+      );
     }
-  };
 
-  const showAlbumSongs = (songs: Song[]) => {
-    setSelectedAlbumSongs(songs);
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+          {t('albuns.porArtista', { artista: selectedArtist.name })}
+        </Text>
+        <FlatList
+          data={selectedArtist.albums}
+          keyExtractor={(item) => item.id}
+          renderItem={renderAlbumItem}
+        />
+      </View>
+    );
   };
-
-  const renderScene = SceneMap({
-    songs: () => <SongsTab songs={selectedArtist?.albums.flatMap(album => album.songs) || []} onPlaySong={playAllSongs} />,
-    albums: () => <AlbumsTab albums={selectedArtist?.albums || []} onSelectAlbumSongs={showAlbumSongs} />,
-  });
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={artists}
-        keyExtractor={(item) => item.name}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => navigateToArtistDetails(item)}>
-            <Text style={styles.artistName}>{item.name}</Text>
-          </TouchableOpacity>
-        )}
-      />
-
-      <Modal visible={modalVisible} animationType="slide">
-        <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>{selectedArtist?.name}</Text>
-          <TabView
-            navigationState={{ index: tabIndex, routes }}
-            renderScene={renderScene}
-            onIndexChange={setTabIndex}
-            renderTabBar={(props) => (
-              <TabBar {...props} style={styles.tabBar} indicatorStyle={styles.tabIndicator} />
-            )}
-          />
-          <Button title="Fechar" onPress={() => setModalVisible(false)} />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {artists.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, { color: theme.secondaryText }]}>
+            {t('artistas.nenhumArtista')}
+          </Text>
         </View>
-      </Modal>
-
-      <Modal visible={selectedAlbumSongs.length > 0} animationType="slide">
-        <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>Músicas do Álbum</Text>
+      ) : (
+        <>
           <FlatList
-            data={selectedAlbumSongs}
+            data={artists}
             keyExtractor={(item) => item.id}
-            renderItem={({ item, index }) => (
-              <TouchableOpacity onPress={() => playSongs(selectedAlbumSongs, index)}>
-                <Text style={styles.songName}>{item.title}</Text>
-              </TouchableOpacity>
-            )}
+            renderItem={renderArtistItem}
           />
-          <Button title="Fechar" onPress={() => setSelectedAlbumSongs([])} />
-        </View>
-      </Modal>
+          
+          <Modal visible={selectedAlbumSongs.length > 0} animationType="slide">
+            <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                {selectedAlbum?.name}
+              </Text>
+              <FlatList
+                data={selectedAlbumSongs}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity>
+                    <Text style={[styles.songName, { color: theme.text }]}>{item.title}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+              <Button 
+                title={t('comum.fechar')} 
+                onPress={() => setSelectedAlbumSongs([])} 
+              />
+            </View>
+          </Modal>
+        </>
+      )}
     </View>
   );
 };
@@ -165,15 +163,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#f5f5f5',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
   },
   artistName: {
     fontSize: 18,
     marginVertical: 10,
   },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   modalTitle: {
     fontSize: 24,

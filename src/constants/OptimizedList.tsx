@@ -1,7 +1,7 @@
 import React, { memo, useCallback } from 'react';
 import { FlatList, ViewStyle, ListRenderItemInfo } from 'react-native';
-import { Song } from '../types/song';
-import { Album } from '../types/album';
+import { Song } from '../types/music';
+import { Album } from '../types/music';
 
 export interface Playlist {
   id: string;

@@ -2,13 +2,13 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, Linking, TouchableOpacity } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { LanguageSelector } from '../components/LanguageSelector'; // Verifique se `LanguageSelector` foi ajustado para trabalhar com react-i18next
-import { useTranslation } from 'react-i18next'; // Substitui o uso de `useLanguage`
+import { LanguageSelector } from '../i18n';
 import { StatusBar, StatusBarStyle } from 'react-native';
+import { useTranslate } from '@tolgee/react';
 
 export default function SettingsScreen() {
   const { theme } = useTheme();
-  const { t } = useTranslation(); // Usar o hook do react-i18next para traduções
+  const { t } = useTranslate();
   
   const appVersion = '1.0.0';
   
@@ -26,23 +26,22 @@ export default function SettingsScreen() {
       <ScrollView style={styles.scrollView}>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            {t('settings')} {/* Tradução para "Configurações" */}
+            {t('configuracoes.titulo')}
           </Text>
           
           <ThemeToggle style={styles.settingItem} />
           
-          {/* Certifique-se de que LanguageSelector foi ajustado para funcionar com i18next */}
           <LanguageSelector style={styles.settingItem} />
         </View>
         
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            {t('about')} {/* Tradução para "Sobre" */}
+            {t('configuracoes.sobre')}
           </Text>
           
           <View style={[styles.settingItem, { backgroundColor: theme.card }]}>
             <Text style={[styles.settingLabel, { color: theme.text }]}>
-              {t('version')} {/* Tradução para "Versão" */}
+              {t('configuracoes.versao')}
             </Text>
             <Text style={[styles.settingValue, { color: theme.secondaryText }]}>
               {appVersion}
@@ -54,14 +53,14 @@ export default function SettingsScreen() {
             onPress={openGithub}
             accessible={true}
             accessibilityLabel="GitHub"
-            accessibilityHint="Toque para abrir o repositório do projeto no GitHub"
+            accessibilityHint={t('configuracoes.dicaGithub')}
             accessibilityRole="link"
           >
             <Text style={[styles.settingLabel, { color: theme.text }]}>
               GitHub
             </Text>
             <Text style={[styles.settingValue, { color: theme.primary }]}>
-              Ver código
+              {t('configuracoes.verCodigo')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -87,6 +86,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   settingItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
     borderRadius: 8,
     marginBottom: 8,
   },

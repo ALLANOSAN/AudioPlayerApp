@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslate } from '@tolgee/react';
 
 interface ThemeToggleProps {
   style?: object;
@@ -8,14 +9,15 @@ interface ThemeToggleProps {
 
 export function ThemeToggle({ style = {} }: ThemeToggleProps) {
   const { isDark, toggleTheme, theme } = useTheme();
+  const { t } = useTranslate();
 
   return (
     <TouchableOpacity
       style={[styles.container, { backgroundColor: theme.card }, style]}
       onPress={toggleTheme}
       accessible={true}
-      accessibilityLabel={isDark ? "Mudar para tema claro" : "Mudar para tema escuro"}
-      accessibilityHint="Toque para alternar entre tema claro e escuro"
+      accessibilityLabel={isDark ? t('tema.mudarParaClaro') : t('tema.mudarParaEscuro')}
+      accessibilityHint={t('tema.dica')}
       accessibilityRole="switch"
       accessibilityState={{ checked: isDark }}
     >
@@ -29,7 +31,7 @@ export function ThemeToggle({ style = {} }: ThemeToggleProps) {
         ]} />
       </View>
       <Text style={[styles.text, { color: theme.text }]}>
-        {isDark ? 'Tema Escuro' : 'Tema Claro'}
+        {isDark ? t('tema.escuro') : t('tema.claro')}
       </Text>
     </TouchableOpacity>
   );
@@ -61,4 +63,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-}); 
+});

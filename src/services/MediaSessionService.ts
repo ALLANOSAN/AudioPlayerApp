@@ -9,7 +9,9 @@ export class MediaSessionService {
   private static instance: MediaSessionService;
   private initialized: boolean = false;
   private eventListeners: any[] = [];
-  private callbacks: {
+
+  // Torne public para acesso externo
+  public callbacks: {
     onPlay?: () => void;
     onPause?: () => void;
     onStop?: () => void;
@@ -19,6 +21,7 @@ export class MediaSessionService {
     onAudioFocusLost?: () => void;
     onAudioFocusGained?: () => void;
   } = {};
+
   private constructor() {}
 
   public static getInstance(): MediaSessionService {
@@ -46,6 +49,7 @@ export class MediaSessionService {
       throw error;
     }
   }
+
   private registerEventListeners(): void {
     this.removeEventListeners();
 
@@ -76,6 +80,7 @@ export class MediaSessionService {
       })
     ];
   }
+
   private removeEventListeners(): void {
     this.eventListeners.forEach(listener => listener.remove());
     this.eventListeners = [];
@@ -103,6 +108,7 @@ export class MediaSessionService {
       Logger.error('Error updating playback state', error);
     }
   }
+
   public async updateMetadata(songInfo: {
     title: string;
     artist: string;
@@ -135,6 +141,7 @@ export class MediaSessionService {
       return false;
     }
   }
+
   public async abandonAudioFocus(): Promise<boolean> {
     if (!this.initialized || Platform.OS !== 'android') return true;
 

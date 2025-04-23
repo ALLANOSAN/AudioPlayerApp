@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Song } from '../types/music';
+import { useTranslate } from '@tolgee/react';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface SongListProps {
   songs: Song[];
@@ -19,20 +21,22 @@ export function SongList({
   showCover = false,
   style = {}
 }: SongListProps) {
+  const { t } = useTranslate();
+  const { theme } = useTheme();
   
   const renderSongItem = ({ item, index }: { item: Song; index: number }) => (
     <TouchableOpacity 
-      style={styles.songItem}
+      style={[styles.songItem, { backgroundColor: theme.card }]}
       onPress={() => onSelectSong(item)}
       activeOpacity={0.7}
       accessible={true}
-      accessibilityLabel={`Música ${item.title} por ${item.artist}`}
-      accessibilityHint="Toque para reproduzir esta música"
+      accessibilityLabel={t('musicas.acessibilidadeItem', { titulo: item.name, artista: item.artist })}
+      accessibilityHint={t('musicas.acessibilidadeDica')}
       accessibilityRole="button"
     >
       {showIndex && (
         <View style={styles.songNumberContainer}>
-          <Text style={styles.songNumber}>{index + 1}</Text>
+          <Text style={[styles.songNumber, { color: theme.tertiaryText }]}>{index + 1}</Text>
         </View>
       )}
       
@@ -41,23 +45,23 @@ export function SongList({
           <Image
             source={{ uri: item.artwork }}
             style={styles.songCover}
-            resizeMode="cover" // Garante que a imagem se ajuste ao espaço
+            resizeMode="cover"
           />
         ) : (
-          <View style={[styles.songCover, styles.defaultCover]}>
-            <Text style={styles.defaultCoverText}>
-              {item.title.charAt(0).toUpperCase()}
+          <View style={[styles.songCover, styles.defaultCover, { backgroundColor: theme.placeholder }]}>
+            <Text style={[styles.defaultCoverText, { color: theme.secondaryText }]}>
+              {item.name.charAt(0).toUpperCase()}
             </Text>
           </View>
         )
       )}
       
       <View style={styles.songInfo}>
-        <Text style={styles.songTitle} numberOfLines={1} ellipsizeMode="tail">
-          {item.title}
+        <Text style={[styles.songTitle, { color: theme.text }]} numberOfLines={1} ellipsizeMode="tail">
+          {item.name}
         </Text>
         {showArtist && (
-          <Text style={styles.songArtist} numberOfLines={1} ellipsizeMode="tail">
+          <Text style={[styles.songArtist, { color: theme.secondaryText }]} numberOfLines={1} ellipsizeMode="tail">
             {item.artist}
           </Text>
         )}
@@ -68,13 +72,13 @@ export function SongList({
   return (
     <FlatList
       data={songs}
-      keyExtractor={(item) => item.url}
+      keyExtractor={(item) => item.id || item.path}
       renderItem={renderSongItem}
       style={[styles.songsList, style]}
       showsVerticalScrollIndicator={false}
       accessible={true}
-      accessibilityLabel="Lista de músicas"
-      accessibilityHint="Lista de músicas disponíveis para reprodução"
+      accessibilityLabel={t('musicas.acessibilidadeLista')}
+      accessibilityHint={t('musicas.acessibilidadeListaDica')}
     />
   );
 }
@@ -87,7 +91,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 12,
     borderRadius: 8,
-    backgroundColor: 'white',
     marginBottom: 8,
     alignItems: 'center',
     elevation: 1,
@@ -102,7 +105,6 @@ const styles = StyleSheet.create({
   },
   songNumber: {
     fontSize: 14,
-    color: '#888',
   },
   songCover: {
     width: 40,
@@ -111,14 +113,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   defaultCover: {
-    backgroundColor: '#E0E0E0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   defaultCoverText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#9E9E9E',
   },
   songInfo: {
     flex: 1,
@@ -127,11 +127,9 @@ const styles = StyleSheet.create({
   songTitle: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#333',
     marginBottom: 4,
   },
   songArtist: {
     fontSize: 14,
-    color: '#666',
   },
 });

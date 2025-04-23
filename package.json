@@ -73,6 +73,7 @@
     "react-i18next": "^15.4.1",
     "react-native": "0.76.9",
     "react-native-config": "^1.5.5",
+    "react-native-draggable-flatlist": "^4.0.2",
     "react-native-gesture-handler": "~2.20.2",
     "react-native-localize": "^3.4.1",
     "react-native-music-control": "^1.4.1",

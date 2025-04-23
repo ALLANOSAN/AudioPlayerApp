@@ -1,8 +1,8 @@
 export interface Song {
     id: string;
-    title: string;
+    name: string;
     artist: string;
-    url: string;
+    path: string;
     artwork?: string;
     duration?: number;
   }
@@ -10,13 +10,13 @@ export interface Song {
   export interface Artist {
     id: string;
     name: string;
-    image?: string;
+    artwork?: string;
     songs?: Song[];
   }
   
   export interface Album {
     id: string;
-    title: string;
+    name: string;
     artist: string;
     artistId?: string;
     artwork?: string;
@@ -27,5 +27,5 @@ export interface Song {
     id: string;
     name: string;
     songs: Song[];
-    coverImage?: string;
+    artwork?: string;
   }

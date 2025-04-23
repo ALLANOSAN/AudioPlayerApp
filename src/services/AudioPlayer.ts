@@ -9,6 +9,9 @@ export class AudioPlayer {
   private sound: Audio.Sound;
   private notificationService: NotificationService;
   private store: any;
+  private playbackStatusCallback?: (status: any) => void;
+  private repeatMode: 'off' | 'one' | 'all' = 'off';
+  private shuffleMode: boolean = false;
 
   private constructor(store: any = defaultStore) {
     this.sound = new Audio.Sound();
@@ -27,8 +30,11 @@ export class AudioPlayer {
     try {
       await this.sound.unloadAsync();
       await this.sound.loadAsync({ uri });
-      
+
       this.sound.setOnPlaybackStatusUpdate((status) => {
+        if (this.playbackStatusCallback) {
+          this.playbackStatusCallback(status);
+        }
         if (status.isLoaded) {
           const duration = status.durationMillis ? status.durationMillis / 1000 : 0;
           this.notificationService.updatePlaybackState(
@@ -38,19 +44,20 @@ export class AudioPlayer {
           );
         }
       });
-      
+
       if (title && artist) {
         const status = await this.sound.getStatusAsync();
         const duration = status.isLoaded && status.durationMillis ? status.durationMillis / 1000 : 0;
-        
-        this.notificationService.updateNotificationMetadata(
+
+        // Use updateMetadata, não updateNotificationMetadata
+        this.notificationService.updateMetadata({
           title,
           artist,
-          artwork || '',
+          artwork: artwork || '',
           duration
-        );
+        });
       }
-      
+
       await this.sound.playAsync();
       this.store.dispatch(setIsPlaying(true));
     } catch (error) {
@@ -65,7 +72,7 @@ export class AudioPlayer {
       if (status.isLoaded) {
         const duration = status.durationMillis ? status.durationMillis / 1000 : 0;
         this.notificationService.updatePlaybackState(
-          false, 
+          false,
           status.positionMillis / 1000,
           duration
         );
@@ -83,7 +90,7 @@ export class AudioPlayer {
       if (status.isLoaded) {
         const duration = status.durationMillis ? status.durationMillis / 1000 : 0;
         this.notificationService.updatePlaybackState(
-          true, 
+          true,
           status.positionMillis / 1000,
           duration
         );
@@ -98,7 +105,7 @@ export class AudioPlayer {
     try {
       await this.sound.stopAsync();
       await this.sound.unloadAsync();
-      this.notificationService.resetNotification();
+      this.notificationService.resetNotificationControls();
     } catch (error) {
       console.error('Error stopping audio:', error);
     }
@@ -137,7 +144,7 @@ export class AudioPlayer {
   async nextTrack() {
     const currentSong = this.store.getState().player.currentSong;
     const playlist = this.store.getState().playlist.songs;
-    
+
     const currentIndex = playlist.findIndex((song: Song) => song.id === currentSong?.id);
     if (currentIndex < playlist.length - 1) {
       const nextSong = playlist[currentIndex + 1];
@@ -154,7 +161,7 @@ export class AudioPlayer {
   async previousTrack() {
     const currentSong = this.store.getState().player.currentSong;
     const playlist = this.store.getState().playlist.songs;
-    
+
     const currentIndex = playlist.findIndex((song: Song) => song.id === currentSong?.id);
     if (currentIndex > 0) {
       const previousSong = playlist[currentIndex - 1];
@@ -166,5 +173,31 @@ export class AudioPlayer {
         previousSong.artwork
       );
     }
+  }
+
+  // === MÉTODOS ADICIONAIS PARA SUPORTE AO PLAYERSCREEN ===
+
+  public setOnPlaybackStatusUpdate(callback: (status: any) => void) {
+    this.playbackStatusCallback = callback;
+    if (this.sound && this.sound.setOnPlaybackStatusUpdate) {
+      this.sound.setOnPlaybackStatusUpdate(callback);
+    }
+  }
+
+  public removeAllListeners() {
+    this.playbackStatusCallback = undefined;
+    if (this.sound && this.sound.setOnPlaybackStatusUpdate) {
+      this.sound.setOnPlaybackStatusUpdate(null);
+    }
+  }
+
+  public setRepeatMode(mode: 'off' | 'one' | 'all') {
+    this.repeatMode = mode;
+    // Implemente lógica de repetição se necessário
+  }
+
+  public setShuffleMode(enabled: boolean) {
+    this.shuffleMode = enabled;
+    // Implemente lógica de shuffle se necessário
   }
 }

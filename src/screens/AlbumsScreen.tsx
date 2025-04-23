@@ -1,177 +1,93 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, FlatList, StyleSheet, Modal, TouchableOpacity } from 'react-native';
-import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
-import { Song } from '../types/music';
-import { Audio } from 'expo-av';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../types/navigation';
+import { useTranslate } from '@tolgee/react';
+import { useTheme } from '../contexts/ThemeContext';
 
-const ArtistsScreen = () => {
-  const [artists, setArtists] = useState<any[]>([]);
-  const [selectedArtist, setSelectedArtist] = useState<any | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedAlbumSongs, setSelectedAlbumSongs] = useState<Song[]>([]);
-  const [tabIndex, setTabIndex] = useState(0);
-  const [routes] = useState([
-    { key: 'songs', title: 'Músicas' },
-    { key: 'albums', title: 'Álbuns' },
-  ]);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+type NavigationProp = StackNavigationProp<RootStackParamList, 'AlbumDetails'>;
 
+interface Album {
+  id: string;
+  name: string;
+  artist: string;
+  cover?: string;
+  songs: any[];
+}
+
+const AlbumsScreen = () => {
+  const { t } = useTranslate();
+  const { theme } = useTheme();
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const navigation = useNavigation<NavigationProp>();
+
+  // Simular carregamento de álbuns
   useEffect(() => {
-    // Simulação para carregar uma fila de músicas
-    const loadQueue = async () => {
-      const queue: Song[] = []; // Aqui você pode carregar as músicas de uma fonte externa
-      organizeByArtist(queue);
-    };
-
-    loadQueue();
-
-    return () => {
-      if (sound) {
-        sound.unloadAsync(); // Libera o som ao desmontar
+    // Este é apenas um exemplo. Na prática, você carregaria dados de uma fonte real
+    const mockAlbums: Album[] = [
+      {
+        id: '1',
+        name: 'Album 1',
+        artist: 'Artist 1',
+        cover: 'https://example.com/cover1.jpg',
+        songs: [{ id: '1', title: 'Song 1' }, { id: '2', title: 'Song 2' }]
+      },
+      {
+        id: '2',
+        name: 'Album 2',
+        artist: 'Artist 2',
+        songs: [{ id: '3', title: 'Song 3' }]
       }
-    };
-  }, [sound]);
+    ];
+    
+    setAlbums(mockAlbums);
+  }, []);
 
-  const organizeByArtist = (songs: Song[]) => {
-    const artistMap: { [key: string]: any } = {};
-
-    songs.forEach((song) => {
-      const artist = song.artist || 'Desconhecido';
-      const album = song.album || 'Sem Álbum';
-
-      if (!artistMap[artist]) {
-        artistMap[artist] = { name: artist, albums: {} };
-      }
-
-      if (!artistMap[artist].albums[album]) {
-        artistMap[artist].albums[album] = [];
-      }
-
-      artistMap[artist].albums[album].push(song);
-    });
-
-    const artistList = Object.keys(artistMap).map((artist) => ({
-      name: artist,
-      albums: Object.keys(artistMap[artist].albums).map((album) => ({
-        name: album,
-        songs: artistMap[artist].albums[album],
-      })),
-    }));
-
-    setArtists(artistList);
+  const handleAlbumPress = (album: Album) => {
+    navigation.navigate('AlbumDetails', { album });
   };
 
-  const navigateToArtistDetails = (artist: any) => {
-    setSelectedArtist(artist);
-    setModalVisible(true);
-  };
-
-  const playAllSongs = async (songs: Song[], startIndex: number = 0) => {
-    try {
-      if (sound) {
-        await sound.unloadAsync(); // Libera o som anterior
-      }
-
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: songs[startIndex].path },
-        { shouldPlay: true }
-      );
-
-      setSound(newSound);
-
-      // Adiciona evento para reproduzir a próxima música automaticamente
-      newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          const nextIndex = startIndex + 1;
-          if (nextIndex < songs.length) {
-            playAllSongs(songs, nextIndex);
-          } else {
-            console.log('Fim da reprodução da lista.');
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Erro ao reproduzir músicas:', error);
-    }
-  };
-
-  const showAlbumSongs = (albumSongs: Song[]) => {
-    setSelectedAlbumSongs(albumSongs);
-  };
-
-  const SongsTab = () => (
-    <FlatList
-      data={selectedArtist?.albums.flatMap((album: any) => album.songs) || []}
-      keyExtractor={(item) => item.path}
-      renderItem={({ item, index }) => (
-        <TouchableOpacity
-          onPress={() =>
-            playAllSongs(selectedArtist?.albums.flatMap((album: any) => album.songs) || [], index)
-          }
-        >
-          <Text style={styles.songName}>{item.name}</Text>
-        </TouchableOpacity>
-      )}
-    />
-  );
-
-  const AlbumsTab = () => (
-    <FlatList
-      data={selectedArtist?.albums || []}
-      keyExtractor={(item) => item.name}
-      renderItem={({ item }) => (
-        <TouchableOpacity onPress={() => showAlbumSongs(item.songs)}>
-          <Text style={styles.albumName}>{item.name}</Text>
-        </TouchableOpacity>
-      )}
-    />
+  const renderAlbumItem = ({ item }: { item: Album }) => (
+    <TouchableOpacity 
+      style={[styles.albumItem, { backgroundColor: theme.card }]} 
+      onPress={() => handleAlbumPress(item)}
+    >
+      <View style={styles.albumImageContainer}>
+        {item.cover ? (
+          <Image source={{ uri: item.cover }} style={styles.albumImage} />
+        ) : (
+          <View style={[styles.albumPlaceholder, { backgroundColor: theme.placeholder }]}>
+            <Text style={styles.albumPlaceholderText}>{item.name.charAt(0)}</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.albumInfo}>
+        <Text style={[styles.albumName, { color: theme.text }]}>{item.name}</Text>
+        <Text style={[styles.albumArtist, { color: theme.secondaryText }]}>{item.artist}</Text>
+        <Text style={[styles.songCount, { color: theme.tertiaryText }]}>
+          {t('albuns.musicas', { count: item.songs.length })}
+        </Text>
+      </View>
+    </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={artists}
-        keyExtractor={(item) => item.name}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => navigateToArtistDetails(item)}>
-            <Text style={styles.artistName}>{item.name}</Text>
-          </TouchableOpacity>
-        )}
-      />
-
-      <Modal visible={modalVisible} animationType="slide">
-        <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>{selectedArtist?.name}</Text>
-          <TabView
-            navigationState={{ index: tabIndex, routes }}
-            renderScene={SceneMap({
-              songs: SongsTab,
-              albums: AlbumsTab,
-            })}
-            onIndexChange={setTabIndex}
-            renderTabBar={(props) => (
-              <TabBar {...props} style={styles.tabBar} indicatorStyle={styles.tabIndicator} />
-            )}
-          />
-          <Button title="Fechar" onPress={() => setModalVisible(false)} />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {albums.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, { color: theme.secondaryText }]}>
+            {t('albuns.nenhumAlbum')}
+          </Text>
         </View>
-      </Modal>
-
-      <Modal visible={selectedAlbumSongs.length > 0} animationType="slide">
-        <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>Músicas do Álbum</Text>
-          <FlatList
-            data={selectedAlbumSongs}
-            keyExtractor={(item) => item.path}
-            renderItem={({ item, index }) => (
-              <TouchableOpacity onPress={() => playAllSongs(selectedAlbumSongs, index)}>
-                <Text style={styles.songName}>{item.name}</Text>
-              </TouchableOpacity>
-            )}
-          />
-          <Button title="Fechar" onPress={() => setSelectedAlbumSongs([])} />
-        </View>
-      </Modal>
+      ) : (
+        <FlatList
+          data={albums}
+          keyExtractor={(item) => item.id}
+          renderItem={renderAlbumItem}
+          contentContainerStyle={styles.list}
+        />
+      )}
     </View>
   );
 };
@@ -179,36 +95,62 @@ const ArtistsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#f5f5f5',
   },
-  artistName: {
-    fontSize: 18,
-    marginVertical: 10,
-  },
-  modalContainer: {
+  emptyContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  modalTitle: {
-    fontSize: 24,
-    margin: 16,
+  emptyText: {
+    fontSize: 16,
     textAlign: 'center',
   },
-  tabBar: {
-    backgroundColor: '#6200EE',
+  list: {
+    padding: 16,
   },
-  tabIndicator: {
-    backgroundColor: 'white',
+  albumItem: {
+    flexDirection: 'row',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  albumImageContainer: {
+    marginRight: 16,
+  },
+  albumImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 4,
+  },
+  albumPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  albumPlaceholderText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  albumInfo: {
+    flex: 1,
+    justifyContent: 'center',
   },
   albumName: {
-    fontSize: 16,
-    margin: 10,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
-  songName: {
+  albumArtist: {
     fontSize: 16,
-    margin: 10,
+    marginBottom: 4,
+  },
+  songCount: {
+    fontSize: 14,
   },
 });
 
-export default ArtistsScreen;
+export default AlbumsScreen;

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Dimensions, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
@@ -7,61 +7,56 @@ import Animated, {
   withSpring,
   runOnJS,
   interpolate,
-  Extrapolate
+  Extrapolate,
 } from 'react-native-reanimated';
-import { AudioPlayer } from '../services/AudioPlayer';
-import { useSelector } from 'react-redux';
-import { RootState } from '../store/types';
-import * as Haptics from 'expo-haptics';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import FastImage, { ImageStyle as FastImageStyle } from 'react-native-fast-image';
+import { useTranslate } from '@tolgee/react';
+import { useTheme } from '../contexts/ThemeContext';
+import { Song } from '../types/music';
+import { MaterialIcons } from '@expo/vector-icons';
+import { Image } from 'react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
-
-interface CachedImageProps {
-  uri: string | undefined;
-  style: FastImageStyle;
+interface SwipeablePlayerProps {
+  currentSong: Song | null;
+  isPlaying: boolean;
+  onPlayPause: () => void;
+  onOpen: () => void;
+  onNext?: () => void;
+  onPrevious?: () => void;
 }
 
-const CachedImage: React.FC<CachedImageProps> = ({ uri, style }) => (
-  <FastImage
-    style={style}
-    source={{ uri: uri || '' }}
-    resizeMode={FastImage.resizeMode.cover}
-  />
-);
-
-export const SwipeablePlayer = () => {
+export function SwipeablePlayer({
+  currentSong,
+  isPlaying,
+  onPlayPause,
+  onOpen,
+  onNext,
+  onPrevious,
+}: SwipeablePlayerProps) {
+  const { t } = useTranslate();
+  const { theme } = useTheme();
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
   const startX = useSharedValue(0);
-  const audioPlayer = AudioPlayer.getInstance();
-  const currentSong = useSelector((state: RootState) => state.player.currentSong);
-  const isPlaying = useSelector((state: RootState) => state.player.isPlaying);
 
-  const handleSwipeComplete = async (direction: 'left' | 'right') => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (direction === 'left') {
-      await audioPlayer.nextTrack();
-    } else {
-      await audioPlayer.previousTrack();
+  const handleSwipeComplete = (direction: 'left' | 'right') => {
+    if (direction === 'left' && onNext) {
+      onNext();
+    } else if (direction === 'right' && onPrevious) {
+      onPrevious();
     }
+    // Reset position
+    translateX.value = withSpring(0);
+    opacity.value = withSpring(1);
   };
 
-  const handlePlayPause = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (isPlaying) {
-      await audioPlayer.pauseAudio();
-    } else {
-      await audioPlayer.resumeAudio();
-    }
+  const handlePlayPause = () => {
+    onPlayPause();
   };
 
-  const tapGesture = Gesture.Tap()
-    .onStart(() => {
-      runOnJS(handlePlayPause)();
-    });
+  // Gesture handlers
+  const tapGesture = Gesture.Tap().onStart(() => {
+    runOnJS(onOpen)();
+  });
 
   const panGesture = Gesture.Pan()
     .onBegin(() => {
@@ -71,17 +66,18 @@ export const SwipeablePlayer = () => {
       translateX.value = startX.value + event.translationX;
       opacity.value = interpolate(
         Math.abs(translateX.value),
-        [0, SCREEN_WIDTH / 2],
+        [0, 100],
         [1, 0.5],
         Extrapolate.CLAMP
       );
     })
     .onEnd((event) => {
-      if (Math.abs(event.translationX) > SWIPE_THRESHOLD) {
+      if (Math.abs(event.translationX) > 100) {
         runOnJS(handleSwipeComplete)(event.translationX > 0 ? 'right' : 'left');
+      } else {
+        translateX.value = withSpring(0);
+        opacity.value = withSpring(1);
       }
-      translateX.value = withSpring(0);
-      opacity.value = withSpring(1);
     });
 
   const gesture = Gesture.Race(tapGesture, panGesture);
@@ -92,6 +88,7 @@ export const SwipeablePlayer = () => {
   }));
 
   useEffect(() => {
+    // Reset position when song changes
     translateX.value = withSpring(0);
     opacity.value = withSpring(1);
   }, [currentSong]);
@@ -100,30 +97,41 @@ export const SwipeablePlayer = () => {
 
   return (
     <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.container, animatedStyle]}>
+      <Animated.View style={[styles.container, { backgroundColor: theme.card }, animatedStyle]}>
         <View style={styles.content}>
-          <CachedImage
-            uri={currentSong.artwork}
-            style={styles.artwork}
-          />
+          {currentSong.artwork ? (
+            <Image source={{ uri: currentSong.artwork }} style={styles.artwork} />
+          ) : (
+            <View style={[styles.artwork, { backgroundColor: theme.placeholder }]}>
+              <Text style={styles.artworkPlaceholder}>{currentSong.name.charAt(0)}</Text>
+            </View>
+          )}
           <View style={styles.textContainer}>
-            <Text style={styles.title} numberOfLines={1}>
-              {currentSong.title}
+            <Text
+              style={[styles.title, { color: theme.text }]}
+              numberOfLines={1}
+              accessibilityLabel={t('player.currentSong', { title: currentSong.name })}>
+              {currentSong.name}
             </Text>
-            <Text style={styles.artist} numberOfLines={1}>
+            <Text style={[styles.artist, { color: theme.secondaryText }]} numberOfLines={1}>
               {currentSong.artist}
             </Text>
           </View>
-          <Icon 
-            name={isPlaying ? 'pause' : 'play'} 
-            size={24} 
-            color="#000" 
-          />
+          <TouchableOpacity
+            onPress={handlePlayPause}
+            accessibilityLabel={isPlaying ? t('player.pause') : t('player.play')}>
+            <MaterialIcons
+              name={isPlaying ? 'pause' : 'play-arrow'}
+              size={32}
+              color={theme.primary}
+            />
+          </TouchableOpacity>
         </View>
+        <Text style={styles.label}>{t('player.swipeParaFechar')}</Text>
       </Animated.View>
     </GestureDetector>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -132,7 +140,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 60,
-    backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#eee',
     elevation: 4,
@@ -143,6 +150,7 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+    padding: 16,
   },
   content: {
     flex: 1,
@@ -155,6 +163,13 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 4,
     marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  artworkPlaceholder: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
   },
   textContainer: {
     flex: 1,
@@ -163,11 +178,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#000',
   },
   artist: {
     fontSize: 14,
-    color: '#666',
     marginTop: 2,
-  }
+  },
+  label: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 8,
+  },
 });

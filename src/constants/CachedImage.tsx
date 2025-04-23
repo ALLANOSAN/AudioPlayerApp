@@ -8,27 +8,37 @@ interface CachedImageProps {
   fallback?: string;
 }
 
+const storageService = StorageService.getInstance();
+
 export const CachedImage = memo(({ uri, style, fallback }: CachedImageProps) => {
   const [imageUri, setImageUri] = React.useState<string>(uri);
-  const storageService = StorageService.getInstance();
 
   React.useEffect(() => {
+    let isMounted = true;
+
     const loadImage = async () => {
       try {
         const cachedUri = await storageService.getCachedTrack<string>(uri);
-        if (cachedUri) {
-          setImageUri(cachedUri);
-        } else {
+        if (isMounted) {
+          setImageUri(cachedUri || fallback || uri);
+        }
+
+        if (!cachedUri) {
           await storageService.cacheTrack(uri, uri);
         }
       } catch (error) {
-        if (fallback) {
+        console.error("Erro ao carregar imagem:", error);
+        if (isMounted && fallback) {
           setImageUri(fallback);
         }
       }
     };
 
     loadImage();
+
+    return () => {
+      isMounted = false; // Evita atualização do estado após desmontagem
+    };
   }, [uri]);
 
   return (

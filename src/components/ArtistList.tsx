@@ -1,10 +1,8 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
-
-interface Artist {
-  id: string;
-  name: string;
-}
+import { useTranslate } from '@tolgee/react';
+import { useTheme } from '../contexts/ThemeContext';
+import { Artist } from '../types/music';
 
 interface ArtistListProps {
   artists: Artist[];
@@ -12,60 +10,75 @@ interface ArtistListProps {
 }
 
 export function ArtistList({ artists, onSelectArtist }: ArtistListProps) {
-  return (
-    <View style={styles.container}>
-      {artists.length === 0 ? (
-        // Exibe mensagem de lista vazia
-        <Text style={styles.emptyText}>Nenhum artista disponível.</Text>
-      ) : (
-        <FlatList
-          data={artists}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              onPress={() => onSelectArtist(item)}
-              activeOpacity={0.7}
-              accessibilityLabel={`Selecionar o artista ${item.name}`}
-            >
-              <View style={styles.artistItem}>
-                <Text style={styles.artistText}>{item.name}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-        />
+  const { t } = useTranslate();
+  const { theme } = useTheme();
+
+  if (artists.length === 0) {
+    return (
+      <View style={[styles.emptyContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.emptyText, { color: theme.secondaryText }]}>
+          {t('artists.noArtists')}
+        </Text>
+      </View>
+    );
+  }
+
+  const renderArtistItem = ({ item }: { item: Artist }) => (
+    <TouchableOpacity
+      style={[styles.artistItem, { backgroundColor: theme.card }]}
+      onPress={() => onSelectArtist(item)}
+      accessibilityLabel={t('artists.accessibilityLabel', { name: item.name, count: item.songs?.length || 0 })}
+      accessibilityRole="button"
+    >
+      <Text style={[styles.artistName, { color: theme.text }]}>
+        {item.name}
+      </Text>
+      {item.songs && (
+        <Text style={[styles.songCount, { color: theme.secondaryText }]}>
+          {t('artists.songs', { count: item.songs.length })}
+        </Text>
       )}
-    </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <FlatList
+      data={artists}
+      keyExtractor={(item) => item.id}
+      renderItem={renderArtistItem}
+      contentContainerStyle={[styles.list, { backgroundColor: theme.background }]}
+      showsVerticalScrollIndicator={false}
+      accessibilityLabel={t('artists.listAccessibilityLabel')}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
+  list: {
+    padding: 16,
+    flexGrow: 1,
   },
   artistItem: {
-    padding: 15,
-    marginVertical: 5,
-    marginHorizontal: 10,
+    padding: 16,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    backgroundColor: '#f9f9f9',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 12,
   },
-  artistText: {
+  artistName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    marginBottom: 4,
+  },
+  songCount: {
+    fontSize: 14,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   emptyText: {
-    textAlign: 'center',
     fontSize: 16,
-    color: '#999',
-    marginTop: 20,
+    textAlign: 'center',
   },
 });

@@ -1,31 +1,35 @@
 import React from 'react';
-import { FlatList, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useTranslate } from '@tolgee/react';
+import { useTheme } from '../contexts/ThemeContext';
 import { Song } from '../types/music';
+import { SongList } from './SongList';
 
 interface SongsTabProps {
   songs: Song[];
-  onPlaySong: (index: number) => void;
+  onSelectSong: (song: Song) => void;
 }
 
-const SongsTab: React.FC<SongsTabProps> = ({ songs, onPlaySong }) => {
+export function SongsTab({ songs, onSelectSong }: SongsTabProps) {
+  const { t } = useTranslate();
+  const { theme } = useTheme();
+
   return (
-    <FlatList
-      data={songs}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item, index }) => (
-        <TouchableOpacity onPress={() => onPlaySong(index)}>
-          <Text style={styles.songName}>{item.title}</Text>
-        </TouchableOpacity>
-      )}
-    />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <SongList 
+        songs={songs} 
+        onSelectSong={onSelectSong}
+        showArtist={true}
+        showIndex={true}
+        showCover={false}
+      />
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  songName: {
-    fontSize: 16,
-    margin: 10,
-  },
+  container: {
+    flex: 1,
+    padding: 8,
+  }
 });
-
-export default SongsTab;

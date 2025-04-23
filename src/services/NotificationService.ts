@@ -37,52 +37,32 @@ export class NotificationService {
 
     MusicControl.on(Command.play, () => {
       Logger.debug('Play command received');
-      this.mediaSessionService.setCallbacks({
-        onPlay: () => {
-          // Implemente a lógica de play
-          Logger.debug('Play command received from MediaSession');
-        }
-      });
+      this.mediaSessionService.callbacks.onPlay?.();
     });
 
     MusicControl.on(Command.pause, () => {
       Logger.debug('Pause command received');
-      this.mediaSessionService.setCallbacks({
-        onPause: () => {
-          // Implemente a lógica de pause
-          Logger.debug('Pause command received from MediaSession');
-        }
-      });
+      this.mediaSessionService.callbacks.onPause?.();
     });
 
     MusicControl.on(Command.stop, () => {
       Logger.debug('Stop command received');
-      this.mediaSessionService.setCallbacks({
-        onStop: () => {
-          // Implemente a lógica de stop
-          Logger.debug('Stop command received from MediaSession');
-        }
-      });
+      this.mediaSessionService.callbacks.onStop?.();
     });
 
     MusicControl.on(Command.nextTrack, () => {
       Logger.debug('Next track command received');
-      this.mediaSessionService.setCallbacks({
-        onNext: () => {
-          // Implemente a lógica de próxima faixa
-          Logger.debug('Next track command received from MediaSession');
-        }
-      });
+      this.mediaSessionService.callbacks.onNext?.();
     });
 
     MusicControl.on(Command.previousTrack, () => {
       Logger.debug('Previous track command received');
-      this.mediaSessionService.setCallbacks({
-        onPrevious: () => {
-          // Implemente a lógica de faixa anterior
-          Logger.debug('Previous track command received from MediaSession');
-        }
-      });
+      this.mediaSessionService.callbacks.onPrevious?.();
+    });
+
+    MusicControl.on(Command.seek, (position: number) => {
+      Logger.debug('Seek command received', position);
+      this.mediaSessionService.callbacks.onSeek?.(position);
     });
 
     this.areEventsRegistered = true;
@@ -100,7 +80,7 @@ export class NotificationService {
       elapsedTime: currentTime,
       duration: duration,
     });
-    
+
     this.mediaSessionService.updatePlaybackState(isPlaying, currentTime, duration);
   }
 
@@ -119,7 +99,7 @@ export class NotificationService {
       color: 0xFFFFFF,
       notificationIcon: 'notification_icon',
     });
-    
+
     this.mediaSessionService.updateMetadata({
       title: songInfo.title,
       artist: songInfo.artist,
@@ -137,10 +117,10 @@ export class NotificationService {
     try {
       this.setupMusicControl();
       this.registerPlaybackEvents();
-      
+
       await Audio.setAudioModeAsync(PlayerConfig.audio);
       await this.mediaSessionService.setup();
-      
+
       Logger.info(APP_STRINGS.SUCCESS.NOTIFICATION_SETUP);
     } catch (error) {
       Logger.error(APP_STRINGS.ERRORS.NOTIFICATION_SETUP, error);

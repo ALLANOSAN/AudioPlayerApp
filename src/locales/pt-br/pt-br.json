@@ -1,20 +1,128 @@
 {
-    "welcome": "Bem-vindo ao Meu Aplicativo",
-    "language": "Idioma",
-    "settings": "Configurações",
-    "search": "Buscar",
-    "cancel": "Cancelar",
-    "save": "Salvar",
-    "delete": "Excluir",
-    "edit": "Editar",
-    "confirm": "Confirmar",
-    "loading": "Carregando...",
-    "version": "Versão",
-    "songs": "Músicas",
-    "albums": "Álbuns",
-    "artists": "Artistas",
-    "playlists": "Playlists",
-    "player": "Player",
-    "albumDetails": "Detalhes do Álbum",
-    "appName": "AudioPlayer"
-}
+    "navegacao": {
+      "musicas": "Músicas",
+      "artistas": "Artistas",
+      "albuns": "Álbuns",
+      "playlists": "Playlists",
+      "configuracoes": "Configurações",
+      "busca": "Busca",
+      "player": "Reprodução",
+      "detalhesAlbum": "Detalhes do Álbum"
+    },
+    "tema": {
+      "mudarParaClaro": "Mudar para tema claro",
+      "mudarParaEscuro": "Mudar para tema escuro",
+      "dica": "Alterar entre modo claro e escuro",
+      "escuro": "Tema Escuro",
+      "claro": "Tema Claro"
+    },
+    "musicas": {
+      "acessibilidadeItem": "Música {titulo} por {artista}. Toque para reproduzir.",
+      "acessibilidadeDica": "Toque para reproduzir essa música",
+      "acessibilidadeLista": "Lista de músicas",
+      "acessibilidadeListaDica": "Lista de músicas disponíveis",
+      "adicionarMusicas": "Adicionar Músicas",
+      "carregando": "Carregando músicas...",
+      "nenhumaMusica": "Nenhuma música encontrada. Adicione músicas para começar.",
+      "nenhumResultado": "Nenhuma música corresponde à sua busca.",
+      "artistaDesconhecido": "Artista Desconhecido",
+      "albumDesconhecido": "Álbum Desconhecido"
+    },
+    "albuns": {
+      "musicas": "{count} música | {count} músicas",
+      "nenhumAlbum": "Nenhum álbum encontrado",
+      "semMusicas": "Sem músicas",
+      "albumVazio": "Este álbum não contém nenhuma música",
+      "tocarTodas": "Tocar Todas",
+      "modoAleatorio": "Modo Aleatório",
+      "porArtista": "Álbuns de {artista}",
+      "noAlbums": "Nenhum álbum disponível",
+      "accessibilityLabel": "Álbum {name} de {artist}",
+      "selectAlbum": "Selecionar álbum {name} com {count} músicas",
+      "listAccessibilityLabel": "Lista de álbuns"
+    },
+    "artistas": {
+      "nenhumArtista": "Nenhum artista encontrado",
+      "selecioneArtista": "Selecione um artista para ver seus álbuns",
+      "acessibilidadeLabel": "Artista {name} com {count} música | Artista {name} com {count} músicas",
+      "songs": "{count} música | {count} músicas",
+      "noArtists": "Nenhum artista disponível",
+      "accessibilityLabel": "Artista {name} com {count} músicas",
+      "listAccessibilityLabel": "Lista de artistas"
+    },
+    "playlist": {
+      "songAccessibility": "Música {title} por {artist}",
+      "songCount": "{count} música | {count} músicas",
+      "playAll": "Tocar tudo",
+      "songList": "Lista de músicas na playlist",
+      "emptySongs": "Esta playlist não contém músicas"
+    },
+    "playlists": {
+      "titulo": "Minhas Playlists",
+      "novaPlaylist": "Nova Playlist",
+      "nenhumaPlaylist": "Você ainda não tem playlists. Crie uma para começar!",
+      "contadorMusicas": "{count} música | {count} músicas",
+      "criarPlaylist": "Criar Playlist",
+      "editarPlaylist": "Editar Playlist",
+      "nomePlaylist": "Nome da Playlist",
+      "nomeObrigatorio": "O nome da playlist é obrigatório",
+      "criadaComSucesso": "Playlist criada com sucesso",
+      "atualizadaComSucesso": "Playlist atualizada com sucesso",
+      "erro": "Erro",
+      "semMusicas": "Sem músicas",
+      "playlistVazia": "Esta playlist não contém nenhuma música",
+      "removerMusica": "Remover Música",
+      "confirmarRemocao": "Tem certeza que deseja remover esta música da playlist?",
+      "tocarPlaylist": "Tocar Playlist",
+      "nenhumaMusicaNaPlaylist": "Nenhuma música nesta playlist",
+      "adicionarMusicas": "Adicionar Músicas"
+    },
+    "player": {
+      "tocandoAgora": "Tocando Agora",
+      "anterior": "Música anterior",
+      "proximo": "Próxima música",
+      "pausar": "Pausar",
+      "reproduzir": "Reproduzir",
+      "repetir": "Repetir",
+      "modoAleatorio": "Modo aleatório",
+      "currentSong": "Tocando: {title}",
+      "pause": "Pausar",
+      "play": "Reproduzir",
+      "loading": "Carregando player...",
+      "seekForward": "Avançar 10 segundos",
+      "seekBackward": "Retroceder 10 segundos"
+    },
+    "idioma": {
+      "titulo": "Idioma",
+      "seletor": "Seletor de idioma",
+      "dica": "Toque para alterar o idioma do aplicativo",
+      "selecione": "Selecione o idioma"
+    },
+    "configuracoes": {
+      "titulo": "Configurações",
+      "sobre": "Sobre o Aplicativo",
+      "versao": "Versão",
+      "verCodigo": "Ver código-fonte",
+      "dicaGithub": "Visitar o repositório do GitHub"
+    },
+    "busca": {
+      "placeholder": "Buscar músicas, artistas ou álbuns",
+      "buscando": "Buscando...",
+      "nenhumResultado": "Nenhum resultado encontrado",
+      "digiteSuaBusca": "Digite para buscar músicas, artistas e álbuns",
+      "tipo": {
+        "song": "Música",
+        "artist": "Artista",
+        "album": "Álbum"
+      }
+    },
+    "comum": {
+      "carregando": "Carregando...",
+      "cancelar": "Cancelar",
+      "remover": "Remover",
+      "salvar": "Salvar",
+      "criar": "Criar",
+      "fechar": "Fechar",
+      "voltar": "Voltar"
+    }
+  }
