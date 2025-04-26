@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   SafeAreaView,
   Alert,
   FlatList,
-  Platform,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useNavigation } from '@react-navigation/native';
@@ -32,7 +31,7 @@ const SongsScreen = () => {
   const [filteredSongs, setFilteredSongs] = useState<Song[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentSongIndex, setCurrentSongIndex] = useState(0);
+  const [currentSongIndex, setCurrentSongIndex] = useState<number | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   const navigation = useNavigation<NavigationProp>();
   const [selectionMode, setSelectionMode] = useState(false);
@@ -94,7 +93,7 @@ const SongsScreen = () => {
             id: Math.random().toString(36).substring(7),
             path: file.uri,
             name: title,
-            artist: t('musicas.artistaDesconhecido'),            
+            artist: t('musicas.artistaDesconhecido'),
             artwork: '',
             duration: 0,
           });
@@ -176,7 +175,7 @@ const SongsScreen = () => {
   };
 
   // Renderização do item da música
-  const renderSongItem = ({ item }: { item: Song }) => {
+  const renderSongItem = ({ item, index }: { item: Song; index: number }) => {
     if (selectionMode) {
       return (
         <TouchableOpacity
@@ -186,32 +185,37 @@ const SongsScreen = () => {
         </TouchableOpacity>
       );
     }
+    const isPlaying = index === currentSongIndex;
     return (
-      
-        <GestureHandlerRootView>
-          <ReanimatedSwipeable
-            friction={2}
-            leftThreshold={30}
-            renderLeftActions={() => (
-              <TouchableOpacity
-                style={[styles.swipeAction, { backgroundColor: 'red' }]}
-                onPress={() => confirmDeleteSong(item.id)}>
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>{t('comum.excluir')}</Text>
-              </TouchableOpacity>
-            )}
-            renderRightActions={() => (
-              <TouchableOpacity
-                style={[styles.swipeAction, { backgroundColor: '#2196F3' }]}
-                onPress={() => activateSelectionMode(item.id)}>
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>{t('comum.selecionar')}</Text>
-              </TouchableOpacity>
-            )}>
-            <TouchableOpacity style={styles.songItem} onPress={() => playCurrentSong(item)}>
-              <Text style={{ color: theme.text }}>{item.name}</Text>
+      <GestureHandlerRootView>
+        <ReanimatedSwipeable
+          friction={2}
+          leftThreshold={30}
+          renderLeftActions={() => (
+            <TouchableOpacity
+              style={[styles.swipeAction, { backgroundColor: 'red' }]}
+              onPress={() => confirmDeleteSong(item.id)}>
+              <Text style={{ color: 'white', fontWeight: 'bold' }}>{t('comum.excluir')}</Text>
             </TouchableOpacity>
-          </ReanimatedSwipeable>
-        </GestureHandlerRootView>
-      );
+          )}
+          renderRightActions={() => (
+            <TouchableOpacity
+              style={[styles.swipeAction, { backgroundColor: '#2196F3' }]}
+              onPress={() => activateSelectionMode(item.id)}>
+              <Text style={{ color: 'white', fontWeight: 'bold' }}>{t('comum.selecionar')}</Text>
+            </TouchableOpacity>
+          )}>
+          <TouchableOpacity style={[styles.songItem, isPlaying && styles.songItemPlaying]} onPress={() => playCurrentSong(item)}>
+            <Text style={{
+              color: theme.text,
+              fontWeight: isPlaying ? 'bold' : 'normal'
+            }}>
+              {item.name}
+            </Text>
+          </TouchableOpacity>
+        </ReanimatedSwipeable>
+      </GestureHandlerRootView>
+    );
   };
 
   // Botão "Tocar tudo"
@@ -362,6 +366,9 @@ const styles = StyleSheet.create({
   },
   songItemSelected: {
     backgroundColor: '#c8e6c9',
+  },
+  songItemPlaying: {
+    backgroundColor: '#b3e5fc',
   },
   swipeAction: {
     justifyContent: 'center',
