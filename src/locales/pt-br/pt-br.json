@@ -41,6 +41,12 @@
       "selectAlbum": "Selecionar álbum {name} com {count} músicas",
       "listAccessibilityLabel": "Lista de álbuns"
     },
+
+    "transicao": {
+      "aguarde": "Aguarde, processando...",
+      "erro": "Ocorreu um erro durante a transição."
+    },
+
     "artistas": {
       "nenhumArtista": "Nenhum artista encontrado",
       "selecioneArtista": "Selecione um artista para ver seus álbuns",
@@ -48,7 +54,12 @@
       "songs": "{count} música | {count} músicas",
       "noArtists": "Nenhum artista disponível",
       "accessibilityLabel": "Artista {name} com {count} músicas",
-      "listAccessibilityLabel": "Lista de artistas"
+      "listAccessibilityLabel": "Lista de artistas",
+      "exportarM3U": "Exportar M3U",
+      "salvaM3U": "Arquivo M3U salvo em {file}",
+      "erroSalvarM3U": "Erro ao salvar arquivo M3U",
+      "buscaMusicas": "Buscar músicas",
+      "musicasNaPlaylist": "Músicas na playlist"
     },
     "playlist": {
       "songAccessibility": "Música {title} por {artist}",
@@ -90,7 +101,8 @@
       "play": "Reproduzir",
       "loading": "Carregando player...",
       "seekForward": "Avançar 10 segundos",
-      "seekBackward": "Retroceder 10 segundos"
+      "seekBackward": "Retroceder 10 segundos",
+      "swipeParaFechar": "Deslize para fechar o player"
     },
     "idioma": {
       "titulo": "Idioma",

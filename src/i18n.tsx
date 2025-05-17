@@ -5,10 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Config from 'react-native-config';
 
-// Importar os arquivos de tradução local como fallback
+// Importar o arquivo de tradução local do pt-BR como fallback
 import ptbrTranslations from './locales/pt-br/pt-br.json';
-import enTranslations from './locales/en/en.json';
-import esTranslations from './locales/es/es.json';
 
 // Chave para armazenar o idioma no AsyncStorage
 const LANGUAGE_STORAGE_KEY = 'user_language';
@@ -30,6 +28,26 @@ type TolgeeContextType = {
 // Criar contexto para evitar problemas de estado
 const TolgeeContext = createContext<TolgeeContextType | null>(null);
 
+// Função para buscar traduções do Tolgee se o arquivo local não existir
+const fetchTolgeeTranslations = async (lang: string, apiUrl: string, apiKey: string) => {
+  try {
+    const response = await fetch(
+      `${apiUrl}/v2/projects/translations/download?format=json&languages=${lang}`,
+      {
+        headers: {
+          'X-API-Key': apiKey,
+        },
+      }
+    );
+    if (!response.ok) throw new Error('Falha ao baixar traduções');
+    const data = await response.json();
+    return data[lang] || {};
+  } catch (e) {
+    console.error(`Erro ao baixar traduções para ${lang}:`, e);
+    return {};
+  }
+};
+
 // Provider que vai envolver a aplicação
 export const TolgeeInstanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const tolgeeState = useTolgeeInstanceInternal();
@@ -44,25 +62,36 @@ export const TolgeeInstanceProvider: React.FC<{ children: React.ReactNode }> = (
 
 // Hook interno para usar dentro do provider
 const useTolgeeInstanceInternal = (): TolgeeContextType => {
-  // Tipo de retorno explícito
   const [currentLang, setCurrentLang] = useState<Language>(DEFAULT_LANGUAGE);
   const [loading, setLoading] = useState(true);
   const [tolgeeInstance, setTolgeeInstance] = useState<TolgeeInstanceType | null>(null);
 
-  // Inicializa e carrega o idioma salvo
   useEffect(() => {
     const initializeLanguage = async () => {
       try {
-        // Tenta carregar o idioma salvo
         const savedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
-
-        // Usa o idioma salvo ou o padrão
         const languageToUse = (savedLanguage as Language) || DEFAULT_LANGUAGE;
 
-        // Cria a instância do Tolgee com o idioma correto
+        // Tenta importar traduções locais, se não existirem faz download do Tolgee
+        let enTranslations: any = {};
+        let esTranslations: any = {};
+        const apiUrl = Config.TOLGEE_API_URL || 'https://app.tolgee.io';
+        const apiKey = Config.TOLGEE_API_KEY || 'SUA_CHAVE_TOLGEE';
+
+        try {
+          enTranslations = require('./locales/en/en.json');
+        } catch {
+          enTranslations = await fetchTolgeeTranslations('en', apiUrl, apiKey);
+        }
+        try {
+          esTranslations = require('./locales/es/es.json');
+        } catch {
+          esTranslations = await fetchTolgeeTranslations('es', apiUrl, apiKey);
+        }
+
         const instance = TolgeeCore().init({
-          apiUrl: Config.TOLGEE_API_URL || 'https://app.tolgee.io',
-          apiKey: Config.TOLGEE_API_KEY || 'SUA_CHAVE_TOLGEE',
+          apiUrl,
+          apiKey,
           language: languageToUse,
           availableLanguages: ['pt-BR', 'en', 'es'],
           staticData: {
@@ -73,7 +102,7 @@ const useTolgeeInstanceInternal = (): TolgeeContextType => {
         });
 
         setCurrentLang(languageToUse);
-        setTolgeeInstance(instance as TolgeeInstanceType); // Usando cast para resolver o erro de tipagem
+        setTolgeeInstance(instance as TolgeeInstanceType);
       } catch (error) {
         console.error('Erro ao carregar idioma:', error);
 
@@ -82,12 +111,10 @@ const useTolgeeInstanceInternal = (): TolgeeContextType => {
           language: DEFAULT_LANGUAGE,
           staticData: {
             'pt-BR': ptbrTranslations,
-            en: enTranslations,
-            es: esTranslations,
           },
         });
 
-        setTolgeeInstance(fallbackInstance as TolgeeInstanceType); // Usando cast para resolver o erro de tipagem
+        setTolgeeInstance(fallbackInstance as TolgeeInstanceType);
       } finally {
         setLoading(false);
       }
@@ -99,10 +126,8 @@ const useTolgeeInstanceInternal = (): TolgeeContextType => {
   // Função para mudar o idioma e persistir a escolha
   const changeLanguage = async (language: Language) => {
     try {
-      // Salva o novo idioma
       await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language);
 
-      // Atualiza o Tolgee - usando método dinâmico para contornar o erro de tipagem
       if (tolgeeInstance) {
         const instance = tolgeeInstance as any;
         if (typeof instance.changeLanguage === 'function') {
@@ -110,7 +135,6 @@ const useTolgeeInstanceInternal = (): TolgeeContextType => {
         }
       }
 
-      // Atualiza o estado
       setCurrentLang(language);
     } catch (error) {
       console.error('Erro ao mudar idioma:', error);
@@ -143,7 +167,6 @@ interface LanguageSelectorProps {
 }
 
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ style }) => {
-  // Usar try/catch para lidar com o caso em que o Provider não está disponível
   let currentLang = DEFAULT_LANGUAGE;
   let changeLanguage = async (lang: Language) => {
     console.warn('Provider não encontrado, mudança de idioma não funcionará');
