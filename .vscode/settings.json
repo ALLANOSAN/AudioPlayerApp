@@ -1,4 +1,4 @@
 {
-    "avdmanager.sdkManager": "/home/allanosan/Documentos/cmdline-tools/tools/bin/sdkmanager",
-    "avdmanager.executable": "/home/allanosan/Documentos/cmdline-tools/tools/bin/avdmanager"
+    "avdmanager.sdkManager": "/home/allanosan/Documentos/Dev/cmdline-tools/latest/bin/sdkmanager",
+    "avdmanager.executable": "/home/allanosan/Documentos/Dev/cmdline-tools/latest/bin/avdmanager"
 }
