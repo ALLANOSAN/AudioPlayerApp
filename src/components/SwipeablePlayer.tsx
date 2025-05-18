@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { Gesture, GestureDetector, PanGestureHandler, State } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
   runOnJS,
   interpolate,
   Extrapolate,
@@ -12,29 +13,40 @@ import Animated, {
 import { useTranslate } from '@tolgee/react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Song } from '../types/music';
-import { MaterialIcons } from '@expo/vector-icons';
-import { Image } from 'react-native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons'; // Alterado
+import { covers } from '../constants/covers';
+import { PlayerControls } from './PlayerControls'; // Assumindo que PlayerControls foi criado/adaptado
+
+const { height, width } = Dimensions.get('window');
+const PLAYER_HEIGHT = 70; // Altura do mini player
+const SNAP_THRESHOLD = PLAYER_HEIGHT / 2;
 
 interface SwipeablePlayerProps {
   currentSong: Song | null;
   isPlaying: boolean;
+  isLoading: boolean;
   onPlayPause: () => void;
-  onOpen: () => void;
-  onNext?: () => void;
-  onPrevious?: () => void;
+  onNext: () => void;
+  onPrevious: () => void;
+  onOpenFullScreenPlayer: () => void;
+  onClose?: () => void; // Para fechar o player com swipe para baixo
+  isVisible: boolean;
 }
 
 export function SwipeablePlayer({
   currentSong,
   isPlaying,
+  isLoading,
   onPlayPause,
-  onOpen,
   onNext,
   onPrevious,
+  onOpenFullScreenPlayer,
+  onClose,
+  isVisible,
 }: SwipeablePlayerProps) {
   const { t } = useTranslate();
   const { theme } = useTheme();
-  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(isVisible ? 0 : PLAYER_HEIGHT + 20); // Começa escondido em baixo
   const opacity = useSharedValue(1);
   const startX = useSharedValue(0);
 
@@ -45,7 +57,7 @@ export function SwipeablePlayer({
       onPrevious();
     }
     // Reset position
-    translateX.value = withSpring(0);
+    translateY.value = withSpring(0);
     opacity.value = withSpring(1);
   };
 
@@ -55,27 +67,27 @@ export function SwipeablePlayer({
 
   // Gesture handlers
   const tapGesture = Gesture.Tap().onStart(() => {
-    runOnJS(onOpen)();
+    runOnJS(onOpenFullScreenPlayer)();
   });
 
   const panGesture = Gesture.Pan()
     .onBegin(() => {
-      startX.value = translateX.value;
+      startX.value = translateY.value;
     })
     .onUpdate((event) => {
-      translateX.value = startX.value + event.translationX;
+      translateY.value = startX.value + event.translationY;
       opacity.value = interpolate(
-        Math.abs(translateX.value),
+        Math.abs(translateY.value),
         [0, 100],
         [1, 0.5],
         Extrapolate.CLAMP
       );
     })
     .onEnd((event) => {
-      if (Math.abs(event.translationX) > 100) {
-        runOnJS(handleSwipeComplete)(event.translationX > 0 ? 'right' : 'left');
+      if (Math.abs(event.translationY) > 100) {
+        runOnJS(handleSwipeComplete)(event.translationY > 0 ? 'right' : 'left');
       } else {
-        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
         opacity.value = withSpring(1);
       }
     });
@@ -83,109 +95,122 @@ export function SwipeablePlayer({
   const gesture = Gesture.Race(tapGesture, panGesture);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
+    transform: [{ translateY: translateY.value }],
     opacity: opacity.value,
   }));
 
+  const gestureHandler = (event: any) => {
+    if (event.nativeEvent.translationY > SNAP_THRESHOLD && onClose) {
+      // Swipe para baixo para fechar
+      translateY.value = withTiming(PLAYER_HEIGHT + 20, {}, () => {
+        runOnJS(onClose)();
+      });
+    } else if (event.nativeEvent.translationY < -SNAP_THRESHOLD) {
+      // Swipe para cima para abrir (ou outra ação)
+      // Poderia ser onOpenFullScreenPlayer se o gesto for para cima
+      // Por agora, apenas volta à posição se não for um swipe de fechar
+      translateY.value = withSpring(0);
+    }
+
+    if (event.nativeEvent.state === State.END) {
+      if (event.nativeEvent.translationY > SNAP_THRESHOLD && onClose) {
+        // Já tratado acima
+      } else {
+        // Volta à posição original se não atingiu o threshold de fechar
+        translateY.value = withSpring(0);
+      }
+    }
+  };
+
   useEffect(() => {
     // Reset position when song changes
-    translateX.value = withSpring(0);
+    translateY.value = withSpring(0);
     opacity.value = withSpring(1);
   }, [currentSong]);
 
-  if (!currentSong) return null;
+  if (!currentSong && !isVisible) {
+    // Não renderiza nada se não houver música e não estiver visível
+    return null;
+  }
 
   return (
-    <GestureDetector gesture={gesture}>
+    <PanGestureHandler onGestureEvent={gestureHandler} onHandlerStateChange={gestureHandler}>
       <Animated.View style={[styles.container, { backgroundColor: theme.card }, animatedStyle]}>
-        <View style={styles.content}>
-          {currentSong.artwork ? (
-            <Image source={{ uri: currentSong.artwork }} style={styles.artwork} />
-          ) : (
-            <View style={[styles.artwork, { backgroundColor: theme.placeholder }]}>
-              <Text style={styles.artworkPlaceholder}>{currentSong.name.charAt(0)}</Text>
-            </View>
-          )}
-          <View style={styles.textContainer}>
-            <Text
-              style={[styles.title, { color: theme.text }]}
-              numberOfLines={1}
-              accessibilityLabel={t('player.currentSong', { title: currentSong.name })}>
-              {currentSong.name}
+        <TouchableOpacity
+          style={styles.touchableContent}
+          onPress={onOpenFullScreenPlayer}
+          activeOpacity={0.9}>
+          <Image
+            source={currentSong?.artwork ? { uri: currentSong.artwork } : covers.defaultCover}
+            style={styles.albumArt}
+          />
+          <View style={styles.songInfo}>
+            <Text style={[styles.songTitle, { color: theme.text }]} numberOfLines={1}>
+              {currentSong?.name || 'Nenhuma música'}
             </Text>
-            <Text style={[styles.artist, { color: theme.secondaryText }]} numberOfLines={1}>
-              {currentSong.artist}
+            <Text style={[styles.songArtist, { color: theme.secondaryText }]} numberOfLines={1}>
+              {currentSong?.artist || 'Selecione uma música'}
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={handlePlayPause}
-            accessibilityLabel={isPlaying ? t('player.pause') : t('player.play')}>
-            <MaterialIcons
-              name={isPlaying ? 'pause' : 'play-arrow'}
-              size={32}
-              color={theme.primary}
-            />
-          </TouchableOpacity>
+        </TouchableOpacity>
+        <View style={styles.controls}>
+          <PlayerControls
+            isPlaying={isPlaying}
+            isLoading={isLoading}
+            onPlayPause={onPlayPause}
+            onNext={onNext} // Mini player pode não ter next/prev, mas deixamos a prop
+            onPrevious={onPrevious}
+            playerType="mini"
+          />
         </View>
-        <Text style={styles.label}>{t('player.swipeParaFechar')}</Text>
       </Animated.View>
-    </GestureDetector>
+    </PanGestureHandler>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 0, // Ou um pouco acima da tab bar se tiver
     left: 0,
     right: 0,
-    height: 60,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    padding: 16,
-  },
-  content: {
-    flex: 1,
+    height: PLAYER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0', // theme.border
+    elevation: 8, // Sombra para Android
+    shadowColor: '#000', // Sombra para iOS
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  artwork: {
-    width: 40,
-    height: 40,
-    borderRadius: 4,
-    marginRight: 12,
-    justifyContent: 'center',
+  touchableContent: {
+    flexDirection: 'row',
     alignItems: 'center',
+    flex: 1, // Ocupa o espaço disponível antes dos controles fixos
   },
-  artworkPlaceholder: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'white',
+  albumArt: {
+    width: PLAYER_HEIGHT - 20,
+    height: PLAYER_HEIGHT - 20,
+    borderRadius: 4,
+    marginRight: 10,
   },
-  textContainer: {
-    flex: 1,
+  songInfo: {
+    flex: 1, // Permite que o texto ocupe o espaço e seja truncado
     justifyContent: 'center',
   },
-  title: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  songTitle: {
+    fontSize: 15,
+    fontWeight: '500',
   },
-  artist: {
-    fontSize: 14,
-    marginTop: 2,
+  songArtist: {
+    fontSize: 13,
   },
-  label: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 8,
+  controls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // Os controles agora vêm do PlayerControls, então o estilo aqui é mais para o container deles
   },
 });

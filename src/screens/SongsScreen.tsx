@@ -1,301 +1,351 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  SafeAreaView,
-  Alert,
   FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  SafeAreaView,
+  ActivityIndicator,
+  Alert,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+// Usando @react-native-documents/picker para seleção de arquivos
+import DocumentPicker, { types as DocumentPickerTypes, DocumentPickerResponse } from '@react-native-documents/picker';
+import { useTheme } from '../contexts/ThemeContext';
+import { useTranslate } from '@tolgee/react'; // Assumindo que @tolgee/react está configurado
 import { Song } from '../types/music';
 import { RootStackParamList } from '../types/navigation';
-import { Audio } from 'expo-av';
-import { lastFmService } from '../services/lastFmService';
-import { useTranslate } from '@tolgee/react';
-import { useTheme } from '../contexts/ThemeContext';
-import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { lastFmService } from '../services/lastFmService'; // Certifique-se que este serviço existe
+// import { TrackPlayerService } from '../services/TrackPlayerService'; // Não precisa instanciar aqui, PlayerScreen fará
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { useDispatch, useSelector } from 'react-redux';
+import { addSongs as addSongsToRedux, removeSongs as removeSongsFromRedux, RootState } from '../store/slices/songsSlice';
+import { Logger } from '../utils/Logger';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'Player'>;
 
 const SongsScreen = () => {
   const { t } = useTranslate();
   const { theme } = useTheme();
-  const [songs, setSongs] = useState<Song[]>([]);
-  const [filteredSongs, setFilteredSongs] = useState<Song[]>([]);
+  const dispatch = useDispatch();
+  const songsFromRedux = useSelector((state: RootState) => state.songs.allSongs);
+
+  const [filteredSongs, setFilteredSongs] = useState<Song[]>(songsFromRedux);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentSongIndex, setCurrentSongIndex] = useState<number | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
   const navigation = useNavigation<NavigationProp>();
+
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // Filtrar músicas com base na pesquisa
+  useEffect(() => {
+    setFilteredSongs(songsFromRedux);
+  }, [songsFromRedux]);
+
   useEffect(() => {
     if (searchQuery.trim() === '') {
-      setFilteredSongs(songs);
+      setFilteredSongs(songsFromRedux);
     } else {
-      const filtered = songs.filter(
+      const lowerQuery = searchQuery.toLowerCase();
+      const filtered = songsFromRedux.filter(
         (song) =>
-          song.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          song.artist.toLowerCase().includes(searchQuery.toLowerCase())
+          song.name.toLowerCase().includes(lowerQuery) ||
+          (song.artist || '').toLowerCase().includes(lowerQuery) ||
+          (song.album || '').toLowerCase().includes(lowerQuery)
       );
       setFilteredSongs(filtered);
     }
-  }, [searchQuery, songs]);
+  }, [searchQuery, songsFromRedux]);
 
-  // Função para adicionar músicas
+  const requestStoragePermission = async (): Promise<boolean> => {
+    if (Platform.OS !== 'android') return true; // Permissão não necessária para outras plataformas
+
+    try {
+      const permissionToRequest =
+        parseInt(String(Platform.Version), 10) >= 33
+          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO
+          : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
+
+      const granted = await PermissionsAndroid.request(
+        permissionToRequest,
+        {
+          title: t('permissoes.armazenamentoTitulo') || "Permissão de Armazenamento",
+          message: t('permissoes.armazenamentoMensagem') || "O aplicativo precisa de acesso aos seus arquivos de áudio.",
+          buttonNeutral: t('permissoes.perguntarDepois') || "Perguntar Depois",
+          buttonNegative: t('comum.cancelar') || "Cancelar",
+          buttonPositive: t('comum.ok') || "OK",
+        }
+      );
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        Logger.info("Permissão de armazenamento concedida.");
+        return true;
+      } else {
+        Logger.warn("Permissão de armazenamento negada.");
+        return false;
+      }
+    } catch (err) {
+      Logger.error('Erro ao solicitar permissão de armazenamento:', err);
+      return false;
+    }
+  };
+
   const addSongsFromFolder = async () => {
+    const hasPermission = await requestStoragePermission();
+    if (!hasPermission) {
+      Alert.alert(
+        t('permissoes.tituloNegada') || "Permissão Negada",
+        t('permissoes.armazenamentoNegada') || "Não é possível adicionar músicas sem permissão de acesso aos arquivos."
+      );
+      return;
+    }
+
     try {
       setIsLoading(true);
-
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'audio/*',
-        copyToCacheDirectory: true,
-        multiple: true,
+      const results: DocumentPickerResponse[] | null = await DocumentPicker.pick({
+        type: [DocumentPickerTypes.audio], // Use o tipo correto da biblioteca
+        allowMultiSelection: true,
+        copyTo: 'cachesDirectory', // Opcional, mas recomendado para acesso estável
       });
 
-      if (result.canceled) {
+      if (!results || results.length === 0) {
+        Logger.info('Nenhum arquivo selecionado.');
         setIsLoading(false);
         return;
       }
 
-      const newSongs: Song[] = [];
+      const newSongsPromises = results.map(async (file) => {
+        const filenameWithExt = file.name || file.uri.split('/').pop() || 'Unknown Track';
+        const filename = filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.')) || filenameWithExt; // Remove extensão
 
-      for (const file of result.assets) {
-        // Extrair nome do arquivo da URL
-        const filenameParts = file.uri.split('/');
-        const filename = filenameParts[filenameParts.length - 1];
-        const title = filename.replace(/\.[^/.]+$/, ''); // Remove a extensão
-
-        // Tenta obter informações adicionais da música via Last.fm API
         try {
-          const songInfo = await lastFmService.fetchSongInfo(title);
-
-          newSongs.push({
-            id: Math.random().toString(36).substring(7),
+          // Tenta buscar informações da música, mas não bloqueia se falhar
+          const songInfo = await lastFmService.fetchSongInfo(filename, '').catch(() => null);
+          return {
+            id: file.uri, // URI é um bom ID único para arquivos locais
+            path: file.uri, // Caminho para o arquivo de áudio
+            name: songInfo?.title || filename,
+            artist: songInfo?.artist || (t('musicas.artistaDesconhecido') || 'Artista Desconhecido'),
+            album: songInfo?.album || '',
+            artwork: songInfo?.cover || '',
+            duration: 0, // TrackPlayer pode obter isso, ou você pode usar uma lib para metadados
+          };
+        } catch (error) { // Captura erros específicos do processamento desta música
+          Logger.warn(`Erro ao processar o arquivo ${filenameWithExt}:`, error);
+          return { // Retorna um objeto base para que a música ainda possa ser adicionada
+            id: file.uri,
             path: file.uri,
-            name: songInfo.title || title,
-            artist: songInfo.artist || t('musicas.artistaDesconhecido'),
-            artwork: songInfo.cover || '',
-            duration: 0,
-          });
-        } catch (error) {
-          // Fallback com informações básicas
-          newSongs.push({
-            id: Math.random().toString(36).substring(7),
-            path: file.uri,
-            name: title,
-            artist: t('musicas.artistaDesconhecido'),
+            name: filename,
+            artist: t('musicas.artistaDesconhecido') || 'Artista Desconhecido',
+            album: '',
             artwork: '',
             duration: 0,
-          });
+          };
         }
+      });
+
+      const newSongsArray = (await Promise.all(newSongsPromises)).filter(Boolean) as Song[];
+      const uniqueNewSongs = newSongsArray.filter(ns => !songsFromRedux.some(s => s.path === ns.path));
+
+      if (uniqueNewSongs.length > 0) {
+        dispatch(addSongsToRedux(uniqueNewSongs));
+        Logger.info(`${uniqueNewSongs.length} novas músicas adicionadas.`);
+      } else {
+        Logger.info('Nenhuma música nova para adicionar (já existem ou array vazio).');
       }
 
-      setSongs((prevSongs) => [...prevSongs, ...newSongs]);
-    } catch (error) {
-      console.error('Erro ao adicionar músicas:', error);
+    } catch (err: any) {
+      // Verificar como @react-native-documents/picker lida com cancelamento
+      if (err.code === 'DOCUMENT_PICKER_CANCELED' || err.message?.includes('cancelled') || err.message?.includes('canceled')) {
+        Logger.info('Seleção de arquivos cancelada pelo usuário.');
+      } else {
+        Logger.error('Erro ao adicionar músicas de pasta:', err);
+        Alert.alert(t('erro.titulo') || "Erro", t('erro.adicionarMusicas') || "Ocorreu um erro ao adicionar as músicas.");
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Função para tocar uma música
-  const playCurrentSong = async (song: Song) => {
-    try {
-      // Encontrar o índice da música selecionada
-      const index = songs.findIndex((s) => s.id === song.id);
-      setCurrentSongIndex(index);
-
-      // Parar qualquer reprodução atual
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-      }
-
-      // Redirecionar para a tela de reprodução
-      navigation.navigate('Player', { song, playlist: songs });
-    } catch (error) {
-      console.error('Erro ao reproduzir música:', error);
+  const playSong = (song: Song, playlistContext: Song[]) => {
+    const songIndex = playlistContext.findIndex(s => s.id === song.id);
+    if (songIndex === -1) {
+        Logger.error("Música não encontrada na playlist fornecida para playSong.");
+        return;
     }
+    // Navega para PlayerScreen, passando a música, a playlist atual (filtrada ou todas) e o índice
+    navigation.navigate('Player', { song, playlist: playlistContext, songIndex });
   };
 
-  // Limpar a pesquisa
   const clearSearch = () => {
     setSearchQuery('');
   };
 
-  // Excluir uma música
-  const confirmDeleteSong = (songId: string) => {
-    Alert.alert(t('musicas.excluir'), t('musicas.confirmaExcluir'), [
-      { text: t('comum.cancelar'), style: 'cancel' },
-      {
-        text: t('comum.excluir'),
-        style: 'destructive',
-        onPress: () => setSongs(songs.filter((s) => s.id !== songId)),
-      },
-    ]);
-  };
-
-  // Ativar seleção múltipla
-  const activateSelectionMode = (songId: string) => {
-    setSelectionMode(true);
-    setSelectedIds([songId]);
-  };
-
-  // Selecionar/desselecionar música
   const toggleSelectSong = (songId: string) => {
     setSelectedIds((prev) =>
       prev.includes(songId) ? prev.filter((id) => id !== songId) : [...prev, songId]
     );
   };
 
-  // Excluir músicas selecionadas
   const confirmDeleteSelected = () => {
-    Alert.alert(t('musicas.excluir'), t('musicas.confirmaExcluirMultiplas'), [
-      { text: t('comum.cancelar'), style: 'cancel' },
-      {
-        text: t('comum.excluir'),
-        style: 'destructive',
-        onPress: () => {
-          setSongs(songs.filter((s) => !selectedIds.includes(s.id)));
-          setSelectionMode(false);
-          setSelectedIds([]);
-        },
-      },
-    ]);
-  };
-
-  // Renderização do item da música
-  const renderSongItem = ({ item, index }: { item: Song; index: number }) => {
-    if (selectionMode) {
-      return (
-        <TouchableOpacity
-          style={[styles.songItem, selectedIds.includes(item.id) && styles.songItemSelected]}
-          onPress={() => toggleSelectSong(item.id)}>
-          <Text style={{ color: theme.text }}>{item.name}</Text>
-        </TouchableOpacity>
-      );
-    }
-    const isPlaying = index === currentSongIndex;
-    return (
-      <GestureHandlerRootView>
-        <ReanimatedSwipeable
-          friction={2}
-          leftThreshold={30}
-          renderLeftActions={() => (
-            <TouchableOpacity
-              style={[styles.swipeAction, { backgroundColor: 'red' }]}
-              onPress={() => confirmDeleteSong(item.id)}>
-              <Text style={{ color: 'white', fontWeight: 'bold' }}>{t('comum.excluir')}</Text>
-            </TouchableOpacity>
-          )}
-          renderRightActions={() => (
-            <TouchableOpacity
-              style={[styles.swipeAction, { backgroundColor: '#2196F3' }]}
-              onPress={() => activateSelectionMode(item.id)}>
-              <Text style={{ color: 'white', fontWeight: 'bold' }}>{t('comum.selecionar')}</Text>
-            </TouchableOpacity>
-          )}>
-          <TouchableOpacity style={[styles.songItem, isPlaying && styles.songItemPlaying]} onPress={() => playCurrentSong(item)}>
-            <Text style={{
-              color: theme.text,
-              fontWeight: isPlaying ? 'bold' : 'normal'
-            }}>
-              {item.name}
-            </Text>
-          </TouchableOpacity>
-        </ReanimatedSwipeable>
-      </GestureHandlerRootView>
+    if (selectedIds.length === 0) return;
+    Alert.alert(
+        t('musicas.excluir') || "Excluir Músicas",
+        t('musicas.confirmaExcluirMultiplas', { count: selectedIds.length }) || `Tem certeza que deseja excluir ${selectedIds.length} música(s)?`,
+        [
+          { text: t('comum.cancelar') || "Cancelar", style: 'cancel' },
+          {
+            text: t('comum.excluir') || "Excluir",
+            style: 'destructive',
+            onPress: () => {
+              dispatch(removeSongsFromRedux(selectedIds));
+              setSelectionMode(false);
+              setSelectedIds([]);
+              Logger.info(`${selectedIds.length} músicas removidas.`);
+            },
+          },
+        ]
     );
   };
 
-  // Botão "Tocar tudo"
+  const renderSongItem = ({ item, index }: { item: Song; index: number }) => {
+    const isSelected = selectedIds.includes(item.id);
+    return (
+      <TouchableOpacity
+        style={[
+          styles.songItem,
+          { backgroundColor: theme.card, borderBottomColor: theme.border },
+          isSelected && { backgroundColor: theme.primary + '30' }, // Um tom mais claro do primário
+        ]}
+        onPress={() => (selectionMode ? toggleSelectSong(item.id) : playSong(item, filteredSongs))}
+        onLongPress={() => {
+          if (!selectionMode) setSelectionMode(true);
+          toggleSelectSong(item.id); // Seleciona/deseleciona no long press
+        }}
+        activeOpacity={0.7}
+      >
+        <View style={styles.songNumberContainer}>
+          <Text style={[styles.songNumber, { color: theme.tertiaryText }]}>{index + 1}</Text>
+        </View>
+        <View style={styles.songInfo}>
+          <Text style={[styles.songName, { color: theme.text }]} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <Text style={[styles.songArtist, { color: theme.secondaryText }]} numberOfLines={1}>
+            {item.artist}
+          </Text>
+        </View>
+        {selectionMode && (
+            <MaterialIcons
+                name={isSelected ? "check-box" : "check-box-outline-blank"}
+                size={24}
+                color={isSelected ? theme.primary : theme.secondaryText}
+                style={styles.checkboxIcon}
+            />
+        )}
+      </TouchableOpacity>
+    );
+  };
+
   const playAllSongs = () => {
-    if (songs.length > 0) {
-      navigation.navigate('Player', { song: songs[0], playlist: songs });
+    if (filteredSongs.length > 0) {
+      playSong(filteredSongs[0], filteredSongs); // Toca a partir da lista filtrada atual
     }
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.searchContainer, { backgroundColor: theme.card }]}>
+        <MaterialIcons name="search" size={24} color={theme.secondaryText} style={styles.searchIcon} />
         <TextInput
-          style={[styles.searchInput, { color: theme.text }]}
-          placeholder={t('busca.placeholder')}
+          style={[styles.searchInput, { color: theme.text, backgroundColor: theme.card }]}
+          placeholder={t('busca.placeholder') || "Buscar músicas..."}
           placeholderTextColor={theme.secondaryText}
           value={searchQuery}
           onChangeText={setSearchQuery}
+          returnKeyType="search"
+          autoCorrect={false}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
-            <Text style={styles.clearButtonText}>✕</Text>
+            <MaterialIcons name="close" size={20} color={theme.secondaryText} />
           </TouchableOpacity>
         )}
       </View>
 
-      <TouchableOpacity
-        style={[styles.addButton, { backgroundColor: theme.primary }]}
-        onPress={addSongsFromFolder}
-        disabled={isLoading}>
-        <Text style={styles.addButtonText}>
-          {isLoading ? t('comum.carregando') : t('musicas.adicionarMusicas')}
-        </Text>
-      </TouchableOpacity>
-
-      {songs.length > 0 && (
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.secondary }]}
-          onPress={playAllSongs}>
-          <Text style={styles.addButtonText}>{t('musicas.tocarTudo')}</Text>
-        </TouchableOpacity>
-      )}
-
-      {selectionMode && (
-        <View style={{ flexDirection: 'row', margin: 10 }}>
+      {!selectionMode ? (
+        <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity
+                style={[styles.headerButton, { backgroundColor: theme.primary }]}
+                onPress={addSongsFromFolder}
+                disabled={isLoading}
+            >
+                <MaterialIcons name="add" size={20} color={theme.buttonText || "white"} />
+                <Text style={[styles.headerButtonText, {color: theme.buttonText || "white"}]}>
+                {isLoading ? (t('comum.carregando') || "Carregando...") : (t('musicas.adicionarMusicas') || "Adicionar")}
+                </Text>
+            </TouchableOpacity>
+            {songsFromRedux.length > 0 && (
+                <TouchableOpacity
+                style={[styles.headerButton, { backgroundColor: theme.secondary, marginLeft: 10 }]}
+                onPress={playAllSongs}
+                >
+                <MaterialIcons name="play-arrow" size={20} color={theme.buttonText || "white"} />
+                <Text style={[styles.headerButtonText, {color: theme.buttonText || "white"}]}>{t('musicas.tocarTudo') || "Tocar Tudo"}</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+      ) : (
+        <View style={styles.selectionActionsContainer}>
           <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: 'red', flex: 1 }]}
+            style={[styles.headerButton, { backgroundColor: theme.error, flex: 1 }]}
             onPress={confirmDeleteSelected}
-            disabled={selectedIds.length === 0}>
-            <Text style={{ color: 'white', textAlign: 'center' }}>
-              {t('musicas.excluirSelecionadas')}
-            </Text>
+            disabled={selectedIds.length === 0}
+          >
+            <MaterialIcons name="delete" size={20} color={theme.buttonText || "white"} />
+            <Text style={[styles.headerButtonText, {color: theme.buttonText || "white"}]}>{t('musicas.excluirSelecionadas') || "Excluir"}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: '#ccc', flex: 1 }]}
+            style={[styles.headerButton, { backgroundColor: theme.surface, marginLeft: 10, flex: 1, borderWidth: 1, borderColor: theme.border }]}
             onPress={() => {
               setSelectionMode(false);
               setSelectedIds([]);
-            }}>
-            <Text style={{ color: 'black', textAlign: 'center' }}>{t('comum.cancelar')}</Text>
+            }}
+          >
+             <MaterialIcons name="close" size={20} color={theme.text} />
+            <Text style={[styles.headerButtonText, {color: theme.text}]}>{t('comum.cancelar') || "Cancelar"}</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
+      {isLoading && songsFromRedux.length === 0 ? ( // Mostra loading apenas se não houver músicas ainda
+        <View style={styles.centeredMessageContainer}>
           <ActivityIndicator size="large" color={theme.primary} />
-          <Text style={[styles.loadingText, { color: theme.text }]}>{t('musicas.carregando')}</Text>
+          <Text style={[styles.messageText, { color: theme.text }]}>{t('musicas.carregando') || "Carregando músicas..."}</Text>
         </View>
       ) : filteredSongs.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: theme.secondaryText }]}>
-            {searchQuery.trim() !== '' ? t('musicas.nenhumResultado') : t('musicas.nenhumaMusica')}
+        <View style={styles.centeredMessageContainer}>
+          <MaterialIcons name="music-off" size={64} color={theme.secondaryText} />
+          <Text style={[styles.messageText, { color: theme.secondaryText }]}>
+            {searchQuery.trim() !== '' ? (t('musicas.nenhumResultado') || "Nenhum resultado encontrado") : (t('musicas.nenhumaMusica') || "Nenhuma música")}
           </Text>
+          {searchQuery.trim() === '' && (
+            <Text style={[styles.subMessageText, { color: theme.tertiaryText }]}>
+              {t('musicas.adicioneAlgumas') || "Adicione algumas músicas para começar."}
+            </Text>
+          )}
         </View>
       ) : (
         <FlatList
           data={filteredSongs}
           keyExtractor={(item) => item.id}
           renderItem={renderSongItem}
+          contentContainerStyle={{ paddingBottom: selectionMode ? 140 : 80 }} // Mais espaço se ações de seleção estiverem visíveis
+          ListFooterComponent={isLoading ? <ActivityIndicator style={{marginVertical: 20}} size="small" color={theme.primary} /> : null} // Indicador se carregando mais
         />
       )}
     </SafeAreaView>
@@ -309,72 +359,105 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    margin: 16,
+    marginHorizontal: 16,
+    marginTop: Platform.OS === 'ios' ? 0 : 16, // Ajuste para SafeAreaView no iOS
+    marginBottom: 8,
     paddingHorizontal: 12,
     height: 50,
     borderRadius: 25,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    height: 50,
+    height: '100%',
   },
   clearButton: {
     padding: 8,
   },
-  clearButtonText: {
-    fontSize: 16,
-    color: '#999',
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
-  addButton: {
+  headerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    minWidth: 120, // Largura mínima para botões
+  },
+  headerButtonText: {
+    fontWeight: 'bold',
+    marginLeft: 8,
+    fontSize: 14,
+  },
+  selectionActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     marginHorizontal: 16,
     marginBottom: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    textAlign: 'center',
   },
   songItem: {
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: '#eee',
-    marginHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  songItemSelected: {
-    backgroundColor: '#c8e6c9',
+  songNumberContainer: {
+    width: 30,
+    alignItems: 'center',
+    marginRight: 10,
   },
-  songItemPlaying: {
-    backgroundColor: '#b3e5fc',
+  songNumber: {
+    fontSize: 14,
   },
-  swipeAction: {
+  songInfo: {
+    flex: 1,
+    marginRight: 10, // Espaço antes do checkbox
+  },
+  songName: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  songArtist: {
+    fontSize: 14,
+  },
+  checkboxIcon: {
+    marginLeft: 'auto', // Alinha à direita
+  },
+  centeredMessageContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 100,
-    height: '100%',
+    padding: 20,
+  },
+  messageText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 15,
+  },
+  subMessageText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });
 

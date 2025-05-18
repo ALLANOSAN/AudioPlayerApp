@@ -1,225 +1,211 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
-import { TolgeeCore } from '@tolgee/core';
-import { TolgeeProvider, useTranslate } from '@tolgee/react';
+import React, { useState, useEffect, createContext, useContext, PropsWithChildren } from 'react';
+import {
+  TolgeeProvider as OfficialTolgeeProvider,
+  useTranslate,
+  TolgeeInstance,
+  Tolgee,
+} from '@tolgee/react';
+// Corrigido: FormatSimple é importado de @tolgee/core
+// Tipos para plugins customizados também de @tolgee/core
+import {
+  LanguageDetectorMiddleware,
+  LanguageStorageMiddleware,
+  TolgeePlugin,
+  FormatSimple, // FormatSimple vem de @tolgee/core
+  CommonProps, // Para a assinatura do setLanguage
+} from '@tolgee/core';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import * as RNLocalize from 'react-native-localize';
+import { Text } from 'react-native';
 import Config from 'react-native-config';
 
-// Importar o arquivo de tradução local do pt-BR como fallback
 import ptbrTranslations from './locales/pt-br/pt-br.json';
+let enTranslationsLocal: any = {};
+try {
+  enTranslationsLocal = require('./locales/en/en.json');
+} catch (e) { /* Arquivo não encontrado */ }
 
-// Chave para armazenar o idioma no AsyncStorage
-const LANGUAGE_STORAGE_KEY = 'user_language';
+let esTranslationsLocal: any = {};
+try {
+  esTranslationsLocal = require('./locales/es/es.json');
+} catch (e) { /* Arquivo não encontrado */ }
+
+const LANGUAGE_STORAGE_KEY = 'app_language_tolgee';
 const DEFAULT_LANGUAGE = 'pt-BR';
 
-// Definir tipos para melhor suporte TypeScript
-type Language = 'pt-BR' | 'en' | 'es';
-
-// Definir tipo correto para a instância Tolgee - ajuste isso com o tipo correto
-type TolgeeInstanceType = any; // Usar any temporariamente para resolver os erros de tipagem
+export type Language = 'pt-BR' | 'en' | 'es';
 
 type TolgeeContextType = {
-  tolgeeInstance: TolgeeInstanceType;
+  tolgeeInstance: TolgeeInstance | null;
   loading: boolean;
   currentLang: Language;
   changeLanguage: (lang: Language) => Promise<void>;
 };
 
-// Criar contexto para evitar problemas de estado
 const TolgeeContext = createContext<TolgeeContextType | null>(null);
 
-// Função para buscar traduções do Tolgee se o arquivo local não existir
+// Plugin LanguageDetector customizado
+const rnLanguageDetectorPlugin: TolgeePlugin = (tolgee, tools) => {
+  const detector: LanguageDetectorMiddleware = {
+    getLanguage(): Language | undefined {
+      const locales = RNLocalize.getLocales();
+      if (locales && locales.length > 0) {
+        const langCode = locales[0].languageCode.split('-')[0] as Language;
+        if ((['pt-BR', 'en', 'es'] as Language[]).includes(langCode)) {
+          return langCode;
+        }
+      }
+      return undefined;
+    },
+  };
+  tools.setLanguageDetector(detector);
+  return tolgee;
+};
+
+// Plugin LanguageStorage customizado
+const rnLanguageStoragePlugin: TolgeePlugin = (tolgee, tools) => {
+  const storage: LanguageStorageMiddleware = {
+    async getLanguage(): Promise<string | undefined> { // Tolgee espera string | undefined
+      const lang = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+      return lang ?? undefined;
+    },
+    async setLanguage(language: string, props: CommonProps): Promise<void> { // language é string
+      await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    },
+  };
+  tools.setLanguageStorage(storage);
+  return tolgee;
+};
+
 const fetchTolgeeTranslations = async (lang: string, apiUrl: string, apiKey: string) => {
   try {
     const response = await fetch(
       `${apiUrl}/v2/projects/translations/download?format=json&languages=${lang}`,
-      {
-        headers: {
-          'X-API-Key': apiKey,
-        },
-      }
+      { headers: { 'X-API-Key': apiKey } }
     );
-    if (!response.ok) throw new Error('Falha ao baixar traduções');
+    if (!response.ok) {
+      console.error(`Falha ao baixar traduções para ${lang}. Status: ${response.status}`);
+      return {};
+    }
     const data = await response.json();
     return data[lang] || {};
   } catch (e) {
-    console.error(`Erro ao baixar traduções para ${lang}:`, e);
+    console.error(`Erro na requisição ao baixar traduções para ${lang}:`, e);
     return {};
   }
 };
 
-// Provider que vai envolver a aplicação
-export const TolgeeInstanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const TolgeeInstanceProvider: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   const tolgeeState = useTolgeeInstanceInternal();
 
-  // Adicionar verificação de carregamento explícita
   if (tolgeeState.loading || !tolgeeState.tolgeeInstance) {
-    return <Text>Carregando...</Text>;
+    return <Text>Carregando idiomas...</Text>;
   }
 
-  return <TolgeeContext.Provider value={tolgeeState}>{children}</TolgeeContext.Provider>;
+  return (
+    <OfficialTolgeeProvider tolgee={tolgeeState.tolgeeInstance}>
+      <TolgeeContext.Provider value={tolgeeState}>{children}</TolgeeContext.Provider>
+    </OfficialTolgeeProvider>
+  );
 };
 
-// Hook interno para usar dentro do provider
 const useTolgeeInstanceInternal = (): TolgeeContextType => {
   const [currentLang, setCurrentLang] = useState<Language>(DEFAULT_LANGUAGE);
   const [loading, setLoading] = useState(true);
-  const [tolgeeInstance, setTolgeeInstance] = useState<TolgeeInstanceType | null>(null);
+  const [tolgeeInstance, setTolgeeInstance] = useState<TolgeeInstance | null>(null);
 
   useEffect(() => {
-    const initializeLanguage = async () => {
+    const initializeTolgee = async () => {
+      setLoading(true);
       try {
-        const savedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
-        const languageToUse = (savedLanguage as Language) || DEFAULT_LANGUAGE;
+        const apiUrl = Config.TOLGEE_API_URL;
+        const apiKey = Config.TOLGEE_API_KEY;
 
-        // Tenta importar traduções locais, se não existirem faz download do Tolgee
-        let enTranslations: any = {};
-        let esTranslations: any = {};
-        const apiUrl = Config.TOLGEE_API_URL || 'https://app.tolgee.io';
-        const apiKey = Config.TOLGEE_API_KEY || 'SUA_CHAVE_TOLGEE';
-
-        try {
-          enTranslations = require('./locales/en/en.json');
-        } catch {
-          enTranslations = await fetchTolgeeTranslations('en', apiUrl, apiKey);
+        const staticData: Record<string, any> = { 'pt-BR': ptbrTranslations };
+        if (Object.keys(enTranslationsLocal).length > 0) {
+          staticData.en = enTranslationsLocal;
+        } else if (apiKey && apiUrl) {
+          staticData.en = await fetchTolgeeTranslations('en', apiUrl, apiKey);
         }
-        try {
-          esTranslations = require('./locales/es/es.json');
-        } catch {
-          esTranslations = await fetchTolgeeTranslations('es', apiUrl, apiKey);
+        if (Object.keys(esTranslationsLocal).length > 0) {
+          staticData.es = esTranslationsLocal;
+        } else if (apiKey && apiUrl) {
+          staticData.es = await fetchTolgeeTranslations('es', apiUrl, apiKey);
         }
 
-        const instance = TolgeeCore().init({
-          apiUrl,
-          apiKey,
-          language: languageToUse,
-          availableLanguages: ['pt-BR', 'en', 'es'],
-          staticData: {
-            'pt-BR': ptbrTranslations,
-            en: enTranslations,
-            es: esTranslations,
-          },
-        });
+        const instance = Tolgee()
+          .use(FormatSimple()) // FormatSimple() é uma função que retorna o plugin, importada de @tolgee/core
+          .use(rnLanguageDetectorPlugin)
+          .use(rnLanguageStoragePlugin)
+          .init({
+            apiKey: apiKey || undefined,
+            apiUrl: apiUrl || undefined,
+            defaultLanguage: DEFAULT_LANGUAGE,
+            availableLanguages: ['pt-BR', 'en', 'es'],
+            staticData: staticData,
+          });
 
-        setCurrentLang(languageToUse);
-        setTolgeeInstance(instance as TolgeeInstanceType);
+        await instance.run();
+
+        setTolgeeInstance(instance);
+        const langFromInstance = instance.getLanguage();
+        if (langFromInstance && (['pt-BR', 'en', 'es'] as string[]).includes(langFromInstance)) {
+          setCurrentLang(langFromInstance as Language);
+        } else {
+          setCurrentLang(DEFAULT_LANGUAGE);
+        }
+
       } catch (error) {
-        console.error('Erro ao carregar idioma:', error);
-
-        // Fallback para instância com idioma padrão em caso de erro
-        const fallbackInstance = TolgeeCore().init({
-          language: DEFAULT_LANGUAGE,
-          staticData: {
-            'pt-BR': ptbrTranslations,
-          },
-        });
-
-        setTolgeeInstance(fallbackInstance as TolgeeInstanceType);
+        console.error('Erro ao inicializar Tolgee:', error);
+        const fallbackInstance = Tolgee()
+          .use(FormatSimple()) // Também aqui
+          .init({
+            defaultLanguage: DEFAULT_LANGUAGE,
+            availableLanguages: ['pt-BR'],
+            staticData: { 'pt-BR': ptbrTranslations },
+          });
+        await fallbackInstance.run();
+        setTolgeeInstance(fallbackInstance);
+        setCurrentLang(DEFAULT_LANGUAGE);
       } finally {
         setLoading(false);
       }
     };
 
-    initializeLanguage();
+    initializeTolgee();
+
+    return () => {
+      tolgeeInstance?.stop();
+    };
   }, []);
 
-  // Função para mudar o idioma e persistir a escolha
   const changeLanguage = async (language: Language) => {
+    if (!tolgeeInstance || loading) return;
+    setLoading(true);
     try {
-      await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language);
-
-      if (tolgeeInstance) {
-        const instance = tolgeeInstance as any;
-        if (typeof instance.changeLanguage === 'function') {
-          await instance.changeLanguage(language);
-        }
-      }
-
+      await tolgeeInstance.changeLanguage(language);
       setCurrentLang(language);
     } catch (error) {
       console.error('Erro ao mudar idioma:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   return {
-    tolgeeInstance: tolgeeInstance as TolgeeInstanceType,
+    tolgeeInstance,
     loading,
     currentLang,
     changeLanguage,
   };
 };
 
-// Hook para componentes consumirem o contexto
 export const useTolgeeInstance = (): TolgeeContextType => {
   const context = useContext(TolgeeContext);
   if (!context) {
-    throw new Error('useTolgeeInstance deve ser usado dentro de TolgeeInstanceProvider');
+    throw new Error('useTolgeeInstance deve ser usado dentro de um TolgeeInstanceProvider');
   }
   return context;
 };
 
-// Exportar componentes necessários
-export { TolgeeProvider, useTranslate };
-
-// Componente de seletor de idioma reutilizável
-interface LanguageSelectorProps {
-  style?: any;
-}
-
-export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ style }) => {
-  let currentLang = DEFAULT_LANGUAGE;
-  let changeLanguage = async (lang: Language) => {
-    console.warn('Provider não encontrado, mudança de idioma não funcionará');
-  };
-
-  try {
-    const context = useTolgeeInstance();
-    currentLang = context.currentLang;
-    changeLanguage = context.changeLanguage;
-  } catch (error) {
-    console.error('Erro ao acessar o contexto Tolgee:', error);
-  }
-
-  return (
-    <View style={[styles.container, style]}>
-      <TouchableOpacity
-        style={[styles.button, currentLang === 'pt-BR' ? styles.activeButton : undefined]}
-        onPress={() => changeLanguage('pt-BR')}>
-        <Text style={styles.buttonText}>Português</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.button, currentLang === 'en' ? styles.activeButton : undefined]}
-        onPress={() => changeLanguage('en')}>
-        <Text style={styles.buttonText}>English</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.button, currentLang === 'es' ? styles.activeButton : undefined]}
-        onPress={() => changeLanguage('es')}>
-        <Text style={styles.buttonText}>Español</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginVertical: 10,
-  },
-  button: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginHorizontal: 4,
-    borderRadius: 4,
-    backgroundColor: '#f0f0f0',
-  },
-  activeButton: {
-    backgroundColor: '#4CAF50',
-  },
-  buttonText: {
-    fontSize: 14,
-  },
-});
+export { useTranslate };

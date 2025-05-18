@@ -1,173 +1,123 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { useTranslate } from '@tolgee/react';
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons'; // Alterado
 import { useTheme } from '../contexts/ThemeContext';
 
 interface PlayerControlsProps {
   isPlaying: boolean;
+  isLoading: boolean;
   onPlayPause: () => void;
   onNext: () => void;
   onPrevious: () => void;
-  onShuffle?: () => void;
-  onRepeat?: () => void;
   shuffleMode?: boolean;
+  onToggleShuffle?: () => void;
   repeatMode?: 'off' | 'one' | 'all';
-  disabled?: boolean;
+  onToggleRepeat?: () => void;
+  playerType?: 'mini' | 'full'; // Para estilização condicional
 }
 
-export function PlayerControls({
+export const PlayerControls: React.FC<PlayerControlsProps> = ({
   isPlaying,
+  isLoading,
   onPlayPause,
   onNext,
   onPrevious,
-  onShuffle,
-  onRepeat,
-  shuffleMode = false,
-  repeatMode = 'off',
-  disabled = false,
-}: PlayerControlsProps) {
-  const { t } = useTranslate();
+  shuffleMode,
+  onToggleShuffle,
+  repeatMode,
+  onToggleRepeat,
+  playerType = 'full',
+}) => {
   const { theme } = useTheme();
 
-  const handlePlayPause = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPlayPause();
+  const getRepeatIconName = () => {
+    if (repeatMode === 'one') return 'repeat-one';
+    if (repeatMode === 'all') return 'repeat'; // Ou um ícone específico para 'all' se tiver
+    return 'repeat';
   };
 
-  const handleNext = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onNext();
-  };
-
-  const handlePrevious = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPrevious();
-  };
-
-  const handleShuffle = () => {
-    if (onShuffle) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      onShuffle();
-    }
-  };
-
-  const handleRepeat = () => {
-    if (onRepeat) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      onRepeat();
-    }
-  };
-
-  const getRepeatIcon = () => {
-    switch (repeatMode) {
-      case 'off':
-        return 'repeat';
-      case 'one':
-        return 'repeat-one';
-      case 'all':
-        return 'repeat';
-    }
-  };
+  const iconSize = playerType === 'mini' ? 28 : 38;
+  const playIconSize = playerType === 'mini' ? 36 : 48;
+  const playButtonSize = playerType === 'mini' ? 50 : 70;
 
   return (
-    <View style={styles.container}>
-      {onShuffle && (
-        <TouchableOpacity
-          onPress={handleShuffle}
-          style={styles.secondaryButton}
-          disabled={disabled}
-          accessibilityLabel={t('player.modoAleatorio')}
-          accessibilityRole="button">
+    <View style={[styles.controlsContainer, playerType === 'mini' && styles.miniControlsContainer]}>
+      {onToggleShuffle && playerType === 'full' && (
+        <TouchableOpacity onPress={onToggleShuffle} style={styles.controlButton}>
           <MaterialIcons
-            name="shuffle"
-            size={24}
-            color={shuffleMode ? theme.primary : theme.secondaryText}
+            name={shuffleMode ? 'shuffle-on' : 'shuffle'}
+            size={playerType === 'mini' ? 22 : 28}
+            color={shuffleMode ? theme.primary : theme.text}
           />
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity
-        onPress={handlePrevious}
-        style={styles.mainButton}
-        disabled={disabled}
-        accessibilityLabel={t('player.anterior')}
-        accessibilityRole="button">
-        <MaterialIcons
-          name="skip-previous"
-          size={36}
-          color={disabled ? theme.secondaryText : theme.text}
-        />
+      <TouchableOpacity onPress={onPrevious} style={styles.controlButton} disabled={isLoading}>
+        <MaterialIcons name="skip-previous" size={iconSize} color={theme.text} />
       </TouchableOpacity>
 
       <TouchableOpacity
-        onPress={handlePlayPause}
+        onPress={onPlayPause}
         style={[
           styles.playButton,
-          { backgroundColor: disabled ? theme.secondaryText : theme.primary },
+          {
+            backgroundColor: theme.primary,
+            width: playButtonSize,
+            height: playButtonSize,
+            borderRadius: playButtonSize / 2,
+          },
+          playerType === 'mini' && styles.miniPlayButton,
         ]}
-        disabled={disabled}
-        accessibilityLabel={isPlaying ? t('player.pausar') : t('player.reproduzir')}
-        accessibilityRole="button">
-        <MaterialIcons name={isPlaying ? 'pause' : 'play-arrow'} size={36} color="white" />
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={handleNext}
-        style={styles.mainButton}
-        disabled={disabled}
-        accessibilityLabel={t('player.proximo')}
-        accessibilityRole="button">
-        <MaterialIcons
-          name="skip-next"
-          size={36}
-          color={disabled ? theme.secondaryText : theme.text}
-        />
-      </TouchableOpacity>
-
-      {onRepeat && (
-        <TouchableOpacity
-          onPress={handleRepeat}
-          style={styles.secondaryButton}
-          disabled={disabled}
-          accessibilityLabel={t('player.repetir')}
-          accessibilityRole="button">
+        disabled={isLoading}>
+        {isLoading ? (
+          <ActivityIndicator size={playerType === 'mini' ? 'small' : 'large'} color="#FFFFFF" />
+        ) : (
           <MaterialIcons
-            name={getRepeatIcon()}
-            size={24}
-            color={repeatMode !== 'off' ? theme.primary : theme.secondaryText}
+            name={isPlaying ? 'pause' : 'play-arrow'}
+            size={playIconSize}
+            color="#FFFFFF"
+          />
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={onNext} style={styles.controlButton} disabled={isLoading}>
+        <MaterialIcons name="skip-next" size={iconSize} color={theme.text} />
+      </TouchableOpacity>
+
+      {onToggleRepeat && playerType === 'full' && (
+        <TouchableOpacity onPress={onToggleRepeat} style={styles.controlButton}>
+          <MaterialIcons
+            name={getRepeatIconName()}
+            size={playerType === 'mini' ? 22 : 28}
+            color={repeatMode && repeatMode !== 'off' ? theme.primary : theme.text}
           />
         </TouchableOpacity>
       )}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: {
+  controlsContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    padding: 16,
+    width: '100%',
+    paddingVertical: 10,
   },
-  secondaryButton: {
-    padding: 8,
+  miniControlsContainer: {
+    justifyContent: 'space-evenly', // Mais juntos para mini player
+    paddingVertical: 5,
   },
-  mainButton: {
-    padding: 12,
+  controlButton: {
+    padding: 10,
   },
   playButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 16,
+    marginHorizontal: 15, // Espaçamento para o botão de play
   },
-  controls: { flexDirection: 'row', justifyContent: 'center', marginTop: 16 },
-  button: { padding: 12, backgroundColor: '#4CAF50', borderRadius: 8, marginHorizontal: 8 },
-  buttonText: { color: 'white', fontWeight: 'bold' },
+  miniPlayButton: {
+    marginHorizontal: 10,
+  },
 });
-
-export default PlayerControls;
