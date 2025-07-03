@@ -25,7 +25,7 @@ import { lastFmService } from '../services/lastFmService'; // Certifique-se que 
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
 import { addSongs as addSongsToRedux, removeSongs as removeSongsFromRedux, RootState } from '../store/slices/songsSlice';
-import { Logger } from '../utils/Logger';
+import { Logger } from '../utils/logger';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'Player'>;
 
@@ -124,13 +124,13 @@ const SongsScreen = () => {
 
         try {
           // Tenta buscar informações da música, mas não bloqueia se falhar
-          const songInfo = await lastFmService.fetchSongInfo(filename, '').catch(() => null);
+          const songInfo = await lastFmService.fetchSongInfo(filename).catch(() => null);
           return {
             id: file.uri, // URI é um bom ID único para arquivos locais
             path: file.uri, // Caminho para o arquivo de áudio
             name: songInfo?.title || filename,
             artist: songInfo?.artist || (t('musicas.artistaDesconhecido') || 'Artista Desconhecido'),
-            album: songInfo?.album || '',
+            album: (songInfo && 'album' in songInfo ? (songInfo as any).album : '') || '',
             artwork: songInfo?.cover || '',
             duration: 0, // TrackPlayer pode obter isso, ou você pode usar uma lib para metadados
           };
@@ -310,7 +310,7 @@ const SongsScreen = () => {
             <Text style={[styles.headerButtonText, {color: theme.buttonText || "white"}]}>{t('musicas.excluirSelecionadas') || "Excluir"}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.headerButton, { backgroundColor: theme.surface, marginLeft: 10, flex: 1, borderWidth: 1, borderColor: theme.border }]}
+            style={[styles.headerButton, { backgroundColor: theme.card, marginLeft: 10, flex: 1, borderWidth: 1, borderColor: theme.border }]}
             onPress={() => {
               setSelectionMode(false);
               setSelectedIds([]);

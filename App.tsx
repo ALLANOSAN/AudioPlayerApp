@@ -4,7 +4,8 @@ import { StatusBar, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import Navigation from './src/navigation/Navigation';
-import { TolgeeInstanceProvider, TolgeeProvider, useTolgeeInstance } from './src/i18n';
+import { TolgeeInstanceProvider, useTolgeeInstance } from './src/i18n';
+import { TolgeeProvider } from '@tolgee/react';
 
 // Componente interno que utiliza o hook de Tolgee
 const TolgeeWrappedApp = () => {

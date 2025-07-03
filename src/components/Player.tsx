@@ -20,7 +20,7 @@ import { covers } from '../constants/covers'; // Certifique-se que este arquivo 
 import { PlayerControls } from './PlayerControls'; // Certifique-se que este componente existe
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, PlayerScreenRouteProp } from '../types/navigation';
-import { Logger } from '../utils/Logger';
+import { Logger } from '../utils/logger';
 import { useRoute } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');

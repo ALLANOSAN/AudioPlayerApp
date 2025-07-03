@@ -13,7 +13,7 @@ interface PlayerControlsProps {
   onToggleShuffle?: () => void;
   repeatMode?: 'off' | 'one' | 'all';
   onToggleRepeat?: () => void;
-  playerType?: 'mini' | 'full'; // Para estilização condicional
+  playerType?: 'mini' | 'full';
 }
 
 export const PlayerControls: React.FC<PlayerControlsProps> = ({
@@ -36,17 +36,18 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
     return 'repeat';
   };
 
-  const iconSize = playerType === 'mini' ? 28 : 38;
-  const playIconSize = playerType === 'mini' ? 36 : 48;
-  const playButtonSize = playerType === 'mini' ? 50 : 70;
+  const isMini = playerType === 'mini';
+  const iconSize = isMini ? 28 : 38;
+  const playIconSize = isMini ? 36 : 48;
+  const playButtonSize = isMini ? 50 : 70;
 
   return (
-    <View style={[styles.controlsContainer, playerType === 'mini' && styles.miniControlsContainer]}>
+    <View style={[styles.controlsContainer, isMini && styles.miniControlsContainer]}>
       {onToggleShuffle && playerType === 'full' && (
         <TouchableOpacity onPress={onToggleShuffle} style={styles.controlButton}>
           <MaterialIcons
             name={shuffleMode ? 'shuffle-on' : 'shuffle'}
-            size={playerType === 'mini' ? 22 : 28}
+            size={isMini ? 22 : 28}
             color={shuffleMode ? theme.primary : theme.text}
           />
         </TouchableOpacity>
@@ -66,7 +67,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
             height: playButtonSize,
             borderRadius: playButtonSize / 2,
           },
-          playerType === 'mini' && styles.miniPlayButton,
+          isMini && styles.miniPlayButton,
         ]}
         disabled={isLoading}>
         {isLoading ? (
@@ -88,7 +89,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
         <TouchableOpacity onPress={onToggleRepeat} style={styles.controlButton}>
           <MaterialIcons
             name={getRepeatIconName()}
-            size={playerType === 'mini' ? 22 : 28}
+            size={isMini ? 22 : 28}
             color={repeatMode && repeatMode !== 'off' ? theme.primary : theme.text}
           />
         </TouchableOpacity>

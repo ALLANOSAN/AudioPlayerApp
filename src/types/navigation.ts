@@ -1,11 +1,14 @@
 // Definição dos tipos para navegação no aplicativo
 import { Song, Artist, Playlist, Album } from './music';
+import { RouteProp } from '@react-navigation/native';
 
 // Definição das rotas e parâmetros para o Stack Navigator
 export type RootStackParamList = {
-  Tabs: undefined; // Rota para o TabNavigator, sem parâmetros
+  MainTabs: undefined; // Corrigido: nome igual ao usado no Stack.Screen
   Player: {
-    song: Song; playlist: Song[] // Rota para o Player, com parâmetro song
+    song: Song; // Rota para o Player, com parâmetro song
+    playlist: Song[];
+    songIndex: number; // Corrigido: adiciona songIndex
   };
   ArtistDetails: {
     artist: Artist; // Rota para detalhes do artista
@@ -25,4 +28,6 @@ export type TabParamList = {
   Artists: undefined;
   Playlists: undefined;
   Settings: undefined;
-}; 
+};
+
+export type PlayerScreenRouteProp = RouteProp<RootStackParamList, 'Player'>;

@@ -1,6 +1,5 @@
 import { AppState } from 'react-native';
 import MusicControl, { Command } from 'react-native-music-control';
-import { Audio } from 'expo-av';
 import { Logger } from '../utils/logger';
 import { APP_STRINGS } from '../constants/strings';
 import { PlayerConfig } from '../config/playerConfig';

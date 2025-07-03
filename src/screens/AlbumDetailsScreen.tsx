@@ -31,8 +31,11 @@ export function AlbumDetailsScreen({ route, navigation }: AlbumDetailsScreenProp
 
   // Função para reproduzir uma música
   const handlePlaySong = (song: any) => {
-    // Lógica para reproduzir uma música
-    navigation.navigate('Player', { song, playlist: album.songs });
+    navigation.navigate('Player', { 
+      song, 
+      playlist: album.songs, 
+      songIndex: album.songs.findIndex(s => s.id === song.id)
+    });
   };
 
   // Função para reproduzir todas as músicas

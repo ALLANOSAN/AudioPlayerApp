@@ -11,12 +11,12 @@ interface PlayerScreenProps {
 }
 
 export function PlayerScreen({ navigation }: PlayerScreenProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar 
-        barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} 
+        barStyle={isDark ? 'light-content' : 'dark-content'} 
         backgroundColor={theme.background} 
       />
       <Player navigation={navigation} />

@@ -59,7 +59,7 @@ export function Playlist({ playlist, onSelectSong, onPlayAll }: PlaylistProps) {
       {playlist.songs.length > 0 ? (
         <FlatList
           data={playlist.songs}
-          keyExtractor={(item) => item.id || item.path}
+          keyExtractor={(item, index) => item.id?.toString() || item.path?.toString() || `song-${index}`}
           renderItem={renderSongItem}
           showsVerticalScrollIndicator={false}
           accessibilityLabel={t('playlist.songList')}

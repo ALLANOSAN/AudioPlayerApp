@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons'; // Alterado
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslate } from '@tolgee/react';
+import { Platform } from 'react-native';
 
 // Importar suas telas
 import SongsScreen from '../screens/SongsScreen';

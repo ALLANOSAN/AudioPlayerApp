@@ -1,4 +1,3 @@
-import { Audio } from 'expo-av';
 import { Logger } from '../utils/logger';
 
 export class EqualizerService {

@@ -8,6 +8,7 @@ import {
   Linking,
   Platform,
   StatusBar,
+  Alert,
 } from 'react-native';
 import DeviceInfo from 'react-native-device-info'; // Alterado
 import { useTheme } from '../contexts/ThemeContext';

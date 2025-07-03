@@ -10,9 +10,11 @@ import {
 
 // Extendendo a interface global para incluir nossas propriedades
 declare global {
-  var __reanimatedWorkletInit: () => void;
-  var withTiming: (value: AnimatableValue, config?: WithTimingConfig) => AnimatableValue;
-  var withSpring: (value: AnimatableValue, config?: WithTimingConfig) => AnimatableValue;
+  interface GlobalThis {
+    __reanimatedWorkletInit?: () => void;
+    withTiming?: (value: AnimatableValue, config?: WithTimingConfig) => AnimatableValue;
+    withSpring?: (value: AnimatableValue, config?: WithTimingConfig) => AnimatableValue;
+  }
 }
 
 // Verifica se o reduced motion está ativado
@@ -43,12 +45,15 @@ export const configureReanimated = (isReducedMotion?: boolean) => {
     reduceMotion: isReducedMotion ? ReduceMotion.Always : ReduceMotion.Never,
   };
 
+  // Variável auxiliar para acessar propriedades extras em globalThis
+  const globalWithReanimated = globalThis as GlobalThis;
+
   // Sobrescreve os defaults globais
-  global.__reanimatedWorkletInit = () => {
+  globalWithReanimated.__reanimatedWorkletInit = () => {
     'worklet';
-    global.withTiming = (value, config) => 
+    globalWithReanimated.withTiming = (value: AnimatableValue, config?: WithTimingConfig) =>
       withTiming(value, { ...baseConfig, ...config });
-    global.withSpring = (value, config) => 
+    globalWithReanimated.withSpring = (value: AnimatableValue, config?: WithTimingConfig) =>
       withSpring(value, { ...baseConfig, ...config });
   };
 };

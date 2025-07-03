@@ -72,7 +72,7 @@ export function SongList({
   return (
     <FlatList
       data={songs}
-      keyExtractor={(item) => item.id || item.path}
+      keyExtractor={(item, index) => item.id?.toString() || item.path?.toString() || `song-${index}`}
       renderItem={renderSongItem}
       style={[styles.songsList, style]}
       showsVerticalScrollIndicator={false}

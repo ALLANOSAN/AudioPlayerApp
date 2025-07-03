@@ -76,7 +76,7 @@ function playlistReducer(state: PlaylistState, action: any): PlaylistState {
 
 const PlaylistsScreen = () => {
   const { t } = useTranslate();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   // Exemplo: Buscando todas as músicas do estado global do Redux.
   // Se você não usa Redux, precisará de outra forma de obter todas as músicas.
@@ -211,7 +211,11 @@ const PlaylistsScreen = () => {
       showToast(t('playlists.nenhumaMusicaNaPlaylist'));
       return;
     }
-    navigation.navigate('Player', { song: playlist.songs[0], playlist: playlist.songs });
+    navigation.navigate('Player', {
+      song: playlist.songs[0],
+      playlist: playlist.songs,
+      songIndex: 0, // Adicione esta linha
+    });
   };
 
   const exportPlaylistM3U = async (playlist: Playlist) => {
@@ -281,7 +285,7 @@ const PlaylistsScreen = () => {
       <TouchableOpacity
         style={[
           styles.modalSongItem,
-          { backgroundColor: theme.cardItem || (theme.isDark ? '#424242' : '#f0f0f0') },
+          { backgroundColor: theme.cardItem || (isDark ? '#424242' : '#f0f0f0') },
           isActive && { backgroundColor: theme.primary + '40' },
           isSelected && { backgroundColor: theme.primary + '70' },
         ]}
@@ -341,7 +345,7 @@ const PlaylistsScreen = () => {
         onRequestClose={() => dispatch({ type: 'SET_STATE', payload: { modalVisible: false } })}>
         <View style={styles.modalOverlay}>
           <View
-            style={[styles.modalContent, { backgroundColor: theme.backgroundModal || theme.card }]}>
+            style={[styles.modalContent, { backgroundColor: theme.background || theme.card }]}>
             <Text style={[styles.modalTitle, { color: theme.text }]}>
               {state.editMode ? t('playlists.editarPlaylist') : t('playlists.novaPlaylist')}
             </Text>
@@ -351,7 +355,7 @@ const PlaylistsScreen = () => {
                 {
                   color: theme.text,
                   borderColor: theme.border,
-                  backgroundColor: theme.inputBackground,
+                  backgroundColor: theme.background,
                 },
               ]}
               placeholder={t('playlists.nomePlaylist')}
@@ -372,7 +376,7 @@ const PlaylistsScreen = () => {
                 {
                   color: theme.text,
                   borderColor: theme.border,
-                  backgroundColor: theme.inputBackground,
+                  backgroundColor: theme.background,
                 },
               ]}
               placeholder={t('busca.placeholder')}
@@ -412,10 +416,10 @@ const PlaylistsScreen = () => {
 
             <View style={styles.modalButtonContainer}>
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: theme.grey || '#ccc' }]}
+                style={[styles.modalButton, { backgroundColor: theme.secondary || '#ccc' }]}
                 onPress={() => dispatch({ type: 'SET_STATE', payload: { modalVisible: false } })}>
                 <Text
-                  style={[styles.modalButtonText, { color: theme.textButtonCancel || theme.text }]}>
+                  style={[styles.modalButtonText, { color: theme.text }]}>
                   {t('comum.cancelar')}
                 </Text>
               </TouchableOpacity>
