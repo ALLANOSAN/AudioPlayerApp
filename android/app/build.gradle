@@ -74,14 +74,12 @@ def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
     ndkVersion rootProject.ext.ndkVersion
-    buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.appdeaudio"
+    namespace "com.allanosan.audioplayerapp"
     defaultConfig {
-        applicationId "com.appdeaudio"
+        applicationId "com.allanosan.audioplayerapp"
         minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
     }

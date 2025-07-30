@@ -1,5 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.audioplayerapp">
-
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -12,14 +11,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" /> {/* Para Android 13+ */}
-    <uses-permission
-    android:name="android.permission.READ_EXTERNAL_STORAGE"
-    android:maxSdkVersion="32" /> {/* Para Android 12 e inferior */}
-    {/* Se precisar de permissão para escrever (ex: salvar capas), adicione: */}
-    {/* <uses-permission
-    android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-    android:maxSdkVersion="28" /> */}
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" 
+    android:maxSdkVersion="32" /> <!-- Para Android 12 e inferior  -->
 
 
     <application
@@ -61,10 +54,11 @@
         </intent-filter>
       </activity>
       
-      {/* Declaração do serviço para react-native-track-player (v3+) */}
+      <!-- Declaração do serviço para react-native-track-player (v3+) -->
       <service
       android:name="com.doublesymmetry.trackplayer.service.MusicService"
-      android:exported="false">
+      android:exported="true"
+      tools:replace="android:exported">
           <intent-filter>
               <action android:name="androidx.media3.session.MediaSessionService" />
           </intent-filter>
